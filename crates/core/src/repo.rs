@@ -9,8 +9,12 @@ pub struct Repo {
     pub repo_dir: PathBuf,
 }
 
+/// `json()` map literals, used by the change template, arrived in this jj version.
+const MIN_JJ_VERSION: (u32, u32) = (0, 46);
+
 impl Repo {
     pub fn discover(start: &Path) -> Result<Self, String> {
+        check_jj_version()?;
         let out = Command::new("jj")
             .args(["--no-pager", "--ignore-working-copy", "root"])
             .current_dir(start)
@@ -40,6 +44,30 @@ impl Repo {
         heads.sort();
         Ok(heads)
     }
+}
+
+fn check_jj_version() -> Result<(), String> {
+    let out = Command::new("jj")
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("cannot run jj: {e}"))?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let version = text.trim();
+    let found =
+        parse_version(version).ok_or_else(|| format!("unrecognized jj version: {version}"))?;
+    if found < MIN_JJ_VERSION {
+        return Err(format!(
+            "jj {}.{} or newer is required, found {version}",
+            MIN_JJ_VERSION.0, MIN_JJ_VERSION.1
+        ));
+    }
+    Ok(())
+}
+
+/// `(major, minor)` of a `jj 0.46.0-<hash>` line.
+fn parse_version(line: &str) -> Option<(u32, u32)> {
+    let mut parts = line.strip_prefix("jj ")?.split(['.', '-']);
+    Some((parts.next()?.parse().ok()?, parts.next()?.parse().ok()?))
 }
 
 fn resolve_repo_dir(root: &Path) -> Result<PathBuf, String> {
