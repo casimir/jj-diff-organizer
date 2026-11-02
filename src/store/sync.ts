@@ -7,5 +7,12 @@ const refreshAll = () =>
 
 export async function startSync(): Promise<() => void> {
   await Promise.all([useGraphStore.getState().init(), useHistoryStore.getState().refresh()]);
-  return api.onRepoChanged(refreshAll);
+  const [unlistenRepo, unlistenReview] = await Promise.all([
+    api.onRepoChanged(refreshAll),
+    api.onReviewChanged((ids) => void useGraphStore.getState().reloadMarks(ids)),
+  ]);
+  return () => {
+    unlistenRepo();
+    unlistenReview();
+  };
 }

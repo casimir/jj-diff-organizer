@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
@@ -8,10 +9,12 @@ use notify::RecursiveMode;
 use notify_debouncer_mini::{DebouncedEvent, Debouncer, new_debouncer};
 
 use crate::repo::Repo;
+use crate::review::change_id_of;
 
 const OP_HEADS_DEBOUNCE: Duration = Duration::from_millis(50);
 const SAFETY_NET_INTERVAL: Duration = Duration::from_secs(2);
 const WORKSPACE_DEBOUNCE: Duration = Duration::from_millis(300);
+const REVIEW_DEBOUNCE: Duration = Duration::from_millis(100);
 
 type Callback = Arc<dyn Fn(Vec<String>) + Send + Sync>;
 
@@ -112,6 +115,36 @@ impl WorkspaceWatch {
                     if events.iter().any(|e| !is_vcs_internal(&watched, &e.path)) {
                         on_change();
                     }
+                }
+            },
+        )?;
+        Ok(Self {
+            _debouncer: debouncer,
+        })
+    }
+}
+
+/// Reports the change ids whose marks file was written or removed, by this app or by a sync tool.
+pub struct ReviewWatch {
+    _debouncer: Debouncer<notify::RecommendedWatcher>,
+}
+
+impl ReviewWatch {
+    pub fn start(
+        dir: &Path,
+        on_change: impl Fn(Vec<String>) + Send + 'static,
+    ) -> Result<Self, String> {
+        let debouncer = watch(
+            REVIEW_DEBOUNCE,
+            dir,
+            RecursiveMode::NonRecursive,
+            move |events| {
+                let ids: BTreeSet<String> = events
+                    .iter()
+                    .filter_map(|e| change_id_of(&e.path))
+                    .collect();
+                if !ids.is_empty() {
+                    on_change(ids.into_iter().collect());
                 }
             },
         )?;

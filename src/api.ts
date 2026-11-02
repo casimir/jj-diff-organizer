@@ -7,8 +7,8 @@ export const repoInfo = () => invoke<RepoInfo>("repo_info");
 export const graph = (revset: string) => invoke<Change[]>("graph", { revset });
 export const show = (changeId: string) => invoke<FileView[]>("show", { changeId });
 export const marks = (changeId: string) => invoke<Marks>("marks", { changeId });
-export const reviewSet = (changeId: string, path: string, digests: string[], reviewed: boolean) =>
-  invoke<void>("review_set", { changeId, path, digests, reviewed });
+export const reviewSet = (changeId: string, path: string, digests: string[], reviewed: boolean, current: string[]) =>
+  invoke<void>("review_set", { changeId, path, digests, reviewed, current });
 export const history = () => invoke<Entry[]>("history");
 export const runJj = (args: string[], hunk?: HunkRef) => invoke<Run>("run_jj", { args, hunk });
 
@@ -27,6 +27,8 @@ export const ptyWrite = (data: string) => invoke<void>("pty_write", { data });
 export const ptyResize = (cols: number, rows: number) => invoke<void>("pty_resize", { cols, rows });
 
 export const onRepoChanged = (handler: () => void) => listen("repo-changed", handler);
+export const onReviewChanged = (handler: (changeIds: string[]) => void) =>
+  listen<string[]>("review-changed", (event) => handler(event.payload));
 
 export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);

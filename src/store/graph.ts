@@ -36,10 +36,12 @@ interface GraphState {
   toggleHunk: () => Promise<void>;
   toggleFile: (path?: string) => Promise<void>;
   refresh: () => Promise<void>;
+  reloadMarks: (changeIds: string[]) => Promise<void>;
 }
 
 let latestRefresh = 0;
 let latestDetails = 0;
+let latestMarks = 0;
 
 /** Review marks and moves apply to the working copy only. */
 export const selectIsWorkingCopy = (s: Pick<GraphState, "changes" | "selectedId">) =>
@@ -69,19 +71,26 @@ export const useGraphStore = create<GraphState>((set, get) => {
     }
   };
 
-  const toggle = async (path: string, digests: string[], reviewed: boolean) => {
+  const loadMarks = async (changeId: string) => {
+    const seq = ++latestMarks;
+    try {
+      const marks = await api.marks(changeId);
+      if (seq === latestMarks && get().selectedId === changeId) set({ marks });
+    } catch (e) {
+      if (seq === latestMarks && get().selectedId === changeId) set({ detailsError: api.errorMessage(e) });
+    }
+  };
+
+  const toggle = async (file: FileView, digests: string[], reviewed: boolean) => {
     const changeId = get().selectedId;
     if (!changeId || !selectIsWorkingCopy(get()) || digests.length === 0) return;
     try {
-      await api.reviewSet(changeId, path, digests, reviewed);
+      await api.reviewSet(changeId, file.path, digests, reviewed, file.digests);
     } catch (e) {
       set({ error: api.errorMessage(e) });
       return;
     }
-    if (get().selectedId !== changeId) return;
-    const current = get().marks[path] ?? [];
-    const next = reviewed ? [...new Set([...current, ...digests])] : current.filter((d) => !digests.includes(d));
-    set({ marks: { ...get().marks, [path]: next } });
+    await loadMarks(changeId);
   };
 
   return {
@@ -179,14 +188,14 @@ export const useGraphStore = create<GraphState>((set, get) => {
       const { files, marks, cursor } = get();
       const file = files.find((f) => f.path === cursor?.path);
       const digest = file && cursor ? file.digests[cursor.group] : undefined;
-      if (file && digest) await toggle(file.path, [digest], !(marks[file.path] ?? []).includes(digest));
+      if (file && digest) await toggle(file, [digest], !(marks[file.path] ?? []).includes(digest));
     },
 
     toggleFile: async (path = get().selectedPath ?? undefined) => {
       const file = get().files.find((f) => f.path === path);
       if (!file) return;
       const marked = get().marks[file.path] ?? [];
-      await toggle(file.path, file.digests, !file.digests.every((d) => marked.includes(d)));
+      await toggle(file, file.digests, !file.digests.every((d) => marked.includes(d)));
     },
 
     refresh: async () => {
@@ -200,6 +209,11 @@ export const useGraphStore = create<GraphState>((set, get) => {
         if (seq === latestRefresh) set({ error: api.errorMessage(e) });
       }
       await details;
+    },
+
+    reloadMarks: async (changeIds) => {
+      const { selectedId } = get();
+      if (selectedId && changeIds.includes(selectedId)) await loadMarks(selectedId);
     },
   };
 });

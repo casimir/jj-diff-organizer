@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
 use std::time::Instant;
@@ -175,6 +176,21 @@ impl Jj {
             .map(|l| format!("{l}\n"))
             .collect();
         parse_lines(&json)
+    }
+
+    pub fn mutable_change_ids(&self) -> Result<BTreeSet<String>, String> {
+        let out = self.read(
+            &READ_FLAGS,
+            &[
+                "log",
+                "--no-graph",
+                "-r",
+                "mutable()",
+                "-T",
+                r#"change_id ++ "\n""#,
+            ],
+        )?;
+        Ok(out.lines().map(str::to_owned).collect())
     }
 
     pub fn op_log(&self, limit: usize) -> Result<Vec<Op>, String> {

@@ -11,7 +11,7 @@ use jjdo_core::jj::{Change, Jj, Run, hunk_tool_config};
 use jjdo_core::pty::Pty;
 use jjdo_core::repo::Repo;
 use jjdo_core::review::{FileMarks, Store};
-use jjdo_core::watch::{OpWatch, WorkspaceWatch};
+use jjdo_core::watch::{OpWatch, ReviewWatch, WorkspaceWatch};
 use serde::{Deserialize, Serialize};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
@@ -27,6 +27,7 @@ struct App {
     workspace_watch: Mutex<Option<WorkspaceWatch>>,
     snapshotting: Mutex<()>,
     review: Mutex<Store>,
+    _review_watch: ReviewWatch,
 }
 
 #[derive(Deserialize)]
@@ -76,7 +77,7 @@ async fn show(app: State<'_, App>, change_id: String) -> Result<Vec<FileView>, S
 }
 
 #[tauri::command]
-fn marks(app: State<'_, App>, change_id: String) -> FileMarks {
+fn marks(app: State<'_, App>, change_id: String) -> Result<FileMarks, String> {
     app.review.lock().unwrap().marks(&change_id)
 }
 
@@ -87,11 +88,12 @@ fn review_set(
     path: String,
     digests: Vec<String>,
     reviewed: bool,
+    current: Vec<String>,
 ) -> Result<(), String> {
     app.review
         .lock()
         .unwrap()
-        .set(&change_id, &path, &digests, reviewed)
+        .set(&change_id, &path, &digests, reviewed, &current)
 }
 
 #[tauri::command]
@@ -251,26 +253,25 @@ fn run_app() {
         ])
         .setup(|app| {
             let repo = Repo::discover(&repo_start_dir()?)?;
-            let store_name: String = repo
-                .root
-                .to_string_lossy()
-                .chars()
-                .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-                .collect();
-            let store_path = app
-                .path()
-                .app_data_dir()?
-                .join("reviews")
-                .join(format!("{store_name}.json"));
+            let store = Store::open(repo.root.join(".jj").join("jjdo").join("reviews"))?;
+            let jj = Jj::new(repo.clone());
+            store.prune(&jj.mutable_change_ids()?)?;
+            let on_review = app.handle().clone();
+            let review_watch = ReviewWatch::start(store.dir(), move |ids| {
+                if let Err(e) = on_review.emit("review-changed", ids) {
+                    eprintln!("cannot emit review-changed: {e}");
+                }
+            })?;
             app.manage(App {
-                jj: Jj::new(repo.clone()),
+                jj,
                 history: Mutex::default(),
                 next_run: AtomicU64::new(1),
                 pty: Mutex::default(),
                 op_watch: Mutex::default(),
                 workspace_watch: Mutex::default(),
                 snapshotting: Mutex::default(),
-                review: Mutex::new(Store::open(store_path)?),
+                review: Mutex::new(store),
+                _review_watch: review_watch,
             });
 
             let handle = app.handle().clone();
