@@ -26,7 +26,11 @@ export const GraphRow = memo(function GraphRow({
 }) {
   const { change, col, before, parentLanes, elided } = row;
   const x = laneX(col);
-  const stroke = "#71717a";
+  const fill = change.wc
+    ? "fill-green-600 dark:fill-green-400"
+    : change.immutable
+      ? "fill-zinc-400"
+      : "fill-canvas";
 
   const ref = useRef<HTMLDivElement>(null);
   const source: DragSource = { kind: "change", change };
@@ -49,14 +53,14 @@ export const GraphRow = memo(function GraphRow({
     <div
       ref={ref}
       onClick={() => onSelect(change.change_id)}
-      className={`flex items-center ${selected ? "bg-zinc-700" : "hover:bg-zinc-800"} ${
+      className={`flex items-center ${selected ? "bg-selected" : "hover:bg-subtle"} ${
         isDragSource ? "opacity-40" : ""
-      } ${indicator === Zone.Onto ? "outline outline-1 -outline-offset-1 outline-sky-400" : ""} ${
-        indicator === Zone.Above ? "border-t-2 border-sky-400" : ""
-      } ${indicator === Zone.Below ? "border-b-2 border-sky-400" : ""}`}
+      } ${indicator === Zone.Onto ? "outline outline-1 -outline-offset-1 outline-accent" : ""} ${
+        indicator === Zone.Above ? "border-t-2 border-accent" : ""
+      } ${indicator === Zone.Below ? "border-b-2 border-accent" : ""}`}
       style={{ height: ROW_HEIGHT }}
     >
-      <svg width={laneCount * LANE_WIDTH} height={ROW_HEIGHT} className="shrink-0">
+      <svg width={laneCount * LANE_WIDTH} height={ROW_HEIGHT} className="shrink-0 stroke-zinc-500">
         {before.map((id, lane) => {
           if (id === null) return null;
           const merges = id === change.commit_id;
@@ -67,31 +71,27 @@ export const GraphRow = memo(function GraphRow({
               y1={0}
               x2={merges ? x : laneX(lane)}
               y2={merges ? MID : ROW_HEIGHT}
-              stroke={stroke}
             />
           );
         })}
         {parentLanes.map((lane, i) => (
-          <line key={i} x1={x} y1={MID} x2={laneX(lane)} y2={ROW_HEIGHT} stroke={stroke} />
+          <line key={i} x1={x} y1={MID} x2={laneX(lane)} y2={ROW_HEIGHT} />
         ))}
-        {elided && (
-          <line x1={x} y1={MID} x2={x} y2={MID + STUB} stroke={stroke} strokeDasharray="2 2" />
-        )}
+        {elided && <line x1={x} y1={MID} x2={x} y2={MID + STUB} strokeDasharray="2 2" />}
         <circle
           cx={x}
           cy={MID}
           r={change.wc ? 5 : 4}
-          fill={change.wc ? "#4ade80" : change.immutable ? "#a1a1aa" : "#18181b"}
-          stroke={change.conflict ? "#f87171" : "#d4d4d8"}
+          className={`${fill} ${change.conflict ? "stroke-danger" : "stroke-dim"}`}
           strokeWidth={1.5}
         />
       </svg>
-      <span className="mr-2 shrink-0 font-mono text-amber-400">{change.short}</span>
+      <span className="mr-2 shrink-0 font-mono text-amber-700 dark:text-amber-400">{change.short}</span>
       {change.wc && (
         <DragLabel
           id="wc"
           source={{ kind: "wc", change }}
-          className="mr-1 shrink-0 rounded bg-green-900 px-1 text-green-200"
+          className="mr-1 shrink-0 rounded bg-green-200 px-1 text-green-900 dark:bg-green-900 dark:text-green-200"
         >
           @
         </DragLabel>
@@ -101,7 +101,7 @@ export const GraphRow = memo(function GraphRow({
           key={b}
           id={`bookmark:${b}`}
           source={{ kind: "bookmark", name: b }}
-          className="mr-1 shrink-0 rounded bg-sky-900 px-1 text-sky-200"
+          className="mr-1 shrink-0 rounded bg-sky-200 px-1 text-sky-900 dark:bg-sky-900 dark:text-sky-200"
         >
           {b}
         </DragLabel>

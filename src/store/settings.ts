@@ -1,13 +1,14 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { load } from "@tauri-apps/plugin-store";
 import { create } from "zustand";
 
-import { EngineName } from "@/types";
+import { Theme } from "@/types";
 
 interface Settings {
-  engine: EngineName;
+  theme: Theme | null;
 }
 
-const DEFAULTS: Settings = { engine: EngineName.Xterm };
+const DEFAULTS: Settings = { theme: null };
 const STORE_FILE = "settings.json";
 
 interface SettingsState extends Settings {
@@ -22,11 +23,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   init: async () => {
     const store = await load(STORE_FILE);
     const saved = await store.get<Partial<Settings>>("settings");
-    set({ engine: saved?.engine ?? DEFAULTS.engine, loaded: true });
+    const theme = saved?.theme ?? DEFAULTS.theme;
+    await getCurrentWindow().setTheme(theme);
+    set({ theme, loaded: true });
   },
   update: async (patch) => {
     set(patch);
+    const { theme } = get();
+    await getCurrentWindow().setTheme(theme);
     const store = await load(STORE_FILE);
-    await store.set("settings", { engine: get().engine });
+    await store.set("settings", { theme });
   },
 }));

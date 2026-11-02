@@ -8,22 +8,22 @@ import { useGraphStore } from "@/store/graph";
 import { FileStatus, LineKind, type DiffLine, type FileView } from "@/types";
 
 const TOKEN_CLASS: Record<string, string> = {
-  keyword: "text-purple-300",
-  stringlit: "text-amber-300",
+  keyword: "text-purple-700 dark:text-purple-300",
+  stringlit: "text-amber-700 dark:text-amber-300",
   comment: "text-zinc-500",
-  number: "text-orange-300",
-  type: "text-teal-300",
-  function: "text-sky-300",
-  variable: "text-zinc-100",
-  operator: "text-zinc-300",
-  punctuation: "text-zinc-400",
-  attribute: "text-yellow-300",
+  number: "text-orange-700 dark:text-orange-300",
+  type: "text-teal-700 dark:text-teal-300",
+  function: "text-sky-700 dark:text-sky-300",
+  variable: "text-fg",
+  operator: "text-dim",
+  punctuation: "text-dim",
+  attribute: "text-yellow-700 dark:text-yellow-300",
 };
 
 const LINE_CLASS: Record<LineKind, string> = {
   [LineKind.Context]: "",
-  [LineKind.Added]: "bg-green-950",
-  [LineKind.Removed]: "bg-red-950",
+  [LineKind.Added]: "bg-added",
+  [LineKind.Removed]: "bg-removed",
   [LineKind.Separator]: "text-zinc-500 italic",
 };
 
@@ -81,7 +81,7 @@ function Hunk({ file, group, lines, reviewable }: {
     <div
       ref={ref}
       onClick={() => useGraphStore.getState().setCursor(pos)}
-      className={`flex ${isCursor ? "ring-1 ring-sky-500 ring-inset" : ""} ${isDragSource ? "opacity-40" : ""}`}
+      className={`flex ${isCursor ? "ring-1 ring-accent ring-inset" : ""} ${isDragSource ? "opacity-40" : ""}`}
     >
       {reviewable && (
         <div className={`${RAIL} flex flex-col items-center gap-1 pt-1`}>
@@ -97,7 +97,7 @@ function Hunk({ file, group, lines, reviewable }: {
       )}
       <div className="min-w-0 flex-1">
         {file.binary ? (
-          <div className="px-2 py-1 text-zinc-400">Binary file</div>
+          <div className="px-2 py-1 text-dim">Binary file</div>
         ) : (
           lines.map((line, i) => <Line key={i} line={line} />)
         )}
@@ -113,7 +113,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
   );
   return (
     <section className="w-max min-w-full">
-      <div className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-2 py-1 font-sans">
+      <div className="sticky top-0 z-10 border-b border-line bg-canvas px-2 py-1 font-sans">
         {file.path}
       </div>
       {blocks.map((block, i) =>

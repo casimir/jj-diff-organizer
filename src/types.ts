@@ -1,8 +1,8 @@
-export const EngineName = {
-  Xterm: "xterm",
-  Ghostty: "ghostty",
+export const Theme = {
+  Light: "light",
+  Dark: "dark",
 } as const;
-export type EngineName = (typeof EngineName)[keyof typeof EngineName];
+export type Theme = (typeof Theme)[keyof typeof Theme];
 
 export interface Change {
   change_id: string;

@@ -11,10 +11,10 @@ import { SelectMode, selectIsWorkingCopy, useGraphStore } from "@/store/graph";
 import { FileStatus, type FileView } from "@/types";
 
 const STATUS: Record<FileStatus, { letter: string; className: string }> = {
-  [FileStatus.Added]: { letter: "A", className: "text-green-400" },
-  [FileStatus.Modified]: { letter: "M", className: "text-sky-400" },
-  [FileStatus.Deleted]: { letter: "D", className: "text-red-400" },
-  [FileStatus.Renamed]: { letter: "R", className: "text-purple-400" },
+  [FileStatus.Added]: { letter: "A", className: "text-green-700 dark:text-green-400" },
+  [FileStatus.Modified]: { letter: "M", className: "text-accent" },
+  [FileStatus.Deleted]: { letter: "D", className: "text-danger" },
+  [FileStatus.Renamed]: { letter: "R", className: "text-purple-700 dark:text-purple-400" },
 };
 
 function FileRow({ file, selected, active, reviewable }: {
@@ -41,7 +41,7 @@ function FileRow({ file, selected, active, reviewable }: {
           .getState()
           .selectFile(file.path, e.shiftKey ? SelectMode.Range : e.metaKey || e.ctrlKey ? SelectMode.Toggle : SelectMode.Replace)
       }
-      className={`flex items-center gap-2 px-2 py-1 ${selected ? "bg-zinc-700" : "hover:bg-zinc-800"} ${
+      className={`flex items-center gap-2 px-2 py-1 ${selected ? "bg-selected" : "hover:bg-subtle"} ${
         isDragSource ? "opacity-40" : ""
       }`}
     >
@@ -75,7 +75,7 @@ export function DetailsPane() {
   if (!selectedId) return <div className="p-2 text-zinc-500">Select a change in the graph.</div>;
   return (
     <div className="flex h-full flex-col">
-      {detailsError && <pre className="p-2 whitespace-pre-wrap text-red-400">{detailsError}</pre>}
+      {detailsError && <pre className="p-2 whitespace-pre-wrap text-danger">{detailsError}</pre>}
       <div className="min-h-0 flex-1">
         <Group orientation="horizontal">
           <Panel defaultSize="35%" minSize="15%">
@@ -97,7 +97,7 @@ export function DetailsPane() {
           </Panel>
         </Group>
       </div>
-      <footer className="flex shrink-0 gap-3 border-t border-zinc-800 px-2 py-0.5 text-zinc-500">
+      <footer className="flex shrink-0 gap-3 border-t border-line px-2 py-0.5 text-zinc-500">
         <span>
           <KeyBadge>j</KeyBadge> <KeyBadge>k</KeyBadge> files
         </span>

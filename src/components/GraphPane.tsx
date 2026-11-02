@@ -18,17 +18,17 @@ export function GraphPane() {
 
   return (
     <div data-pane="graph" tabIndex={-1} className="flex h-full flex-col outline-none">
-      <div className="flex gap-2 border-b border-zinc-800 p-1">
+      <div className="flex gap-2 border-b border-line p-1">
         <RevsetInput key={revset} initial={revset} />
         <button
-          className="rounded px-2 hover:bg-zinc-700"
+          className="rounded px-2 hover:bg-selected"
           title="Settings"
           onClick={() => useUiStore.getState().setSettingsOpen(true)}
         >
           ⚙
         </button>
       </div>
-      {error && <pre className="border-b border-red-900 p-2 whitespace-pre-wrap text-red-400">{error}</pre>}
+      {error && <pre className="border-b border-danger p-2 whitespace-pre-wrap text-danger">{error}</pre>}
       <div className="min-h-0 flex-1 overflow-auto">
         {layout.rows.map((row) => (
           <GraphRow
@@ -40,7 +40,7 @@ export function GraphPane() {
           />
         ))}
       </div>
-      <footer className="shrink-0 border-t border-zinc-800 px-2 py-0.5 text-zinc-500">
+      <footer className="shrink-0 border-t border-line px-2 py-0.5 text-zinc-500">
         <KeyBadge>n</KeyBadge> <KeyBadge>p</KeyBadge> next / previous change{" "}
         <KeyBadge>{`${MOD}+1`}</KeyBadge> focus
       </footer>
@@ -52,7 +52,7 @@ function RevsetInput({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial);
   return (
     <input
-      className="min-w-0 flex-1 rounded bg-zinc-800 px-2 py-1 font-mono outline-none focus:ring-1 focus:ring-zinc-500"
+      className="min-w-0 flex-1 rounded bg-subtle px-2 py-1 font-mono outline-none focus:ring-1 focus:ring-zinc-500"
       value={value}
       spellCheck={false}
       onChange={(e) => setValue(e.target.value)}

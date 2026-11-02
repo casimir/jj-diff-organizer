@@ -36,7 +36,7 @@ export function HistoryPane() {
   return (
     <div data-pane="history" tabIndex={-1} className="flex h-full flex-col outline-none">
       {import.meta.env.DEV && <DevRunner />}
-      {error && <pre className="p-2 whitespace-pre-wrap text-red-400">{error}</pre>}
+      {error && <pre className="p-2 whitespace-pre-wrap text-danger">{error}</pre>}
       <div className="flex min-h-0 flex-1 flex-col-reverse overflow-auto">
         <div>
           {entries.map((entry) => {
@@ -44,29 +44,29 @@ export function HistoryPane() {
             const { gui, command, failed, meta, output } = describe(entry);
             const selected = key === selectedKey;
             return (
-              <div key={key} className="border-b border-zinc-800">
+              <div key={key} className="border-b border-line">
                 <div
-                  className={`flex cursor-default gap-2 px-2 py-1 ${selected ? "bg-zinc-700" : "hover:bg-zinc-800"}`}
+                  className={`flex cursor-default gap-2 px-2 py-1 ${selected ? "bg-selected" : "hover:bg-subtle"}`}
                   onClick={() => useHistoryStore.getState().select(selected ? null : key)}
                 >
-                  <span className={gui ? "text-sky-400" : "text-zinc-500"}>
+                  <span className={gui ? "text-accent" : "text-zinc-500"}>
                     {gui ? "gui" : "op"}
                   </span>
-                  <span className={`min-w-0 flex-1 truncate font-mono ${failed ? "text-red-400" : ""}`}>
+                  <span className={`min-w-0 flex-1 truncate font-mono ${failed ? "text-danger" : ""}`}>
                     {command}
                   </span>
-                  {failed && <span className="text-red-400">failed</span>}
+                  {failed && <span className="text-danger">failed</span>}
                   <span className="text-zinc-500">{meta}</span>
                 </div>
                 {selected && (
-                  <pre className="px-2 pb-2 font-mono whitespace-pre-wrap text-zinc-300">{output}</pre>
+                  <pre className="px-2 pb-2 font-mono whitespace-pre-wrap text-dim">{output}</pre>
                 )}
               </div>
             );
           })}
         </div>
       </div>
-      <footer className="shrink-0 border-t border-zinc-800 px-2 py-0.5 text-zinc-500">
+      <footer className="shrink-0 border-t border-line px-2 py-0.5 text-zinc-500">
         <KeyBadge>{`${MOD}+3`}</KeyBadge> focus
       </footer>
     </div>
@@ -92,9 +92,9 @@ function DevRunner() {
   };
 
   return (
-    <div className="border-b border-zinc-800 p-1">
+    <div className="border-b border-line p-1">
       <input
-        className="w-full rounded bg-zinc-800 px-2 py-1 font-mono outline-none focus:ring-1 focus:ring-zinc-500"
+        className="w-full rounded bg-subtle px-2 py-1 font-mono outline-none focus:ring-1 focus:ring-zinc-500"
         placeholder="dev: run jj with args"
         value={line}
         spellCheck={false}
@@ -103,7 +103,7 @@ function DevRunner() {
           if (e.key === "Enter") void run();
         }}
       />
-      {error && <div className="text-red-400">{error}</div>}
+      {error && <div className="text-danger">{error}</div>}
     </div>
   );
 }

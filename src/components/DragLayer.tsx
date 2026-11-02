@@ -41,7 +41,7 @@ function DragPreview() {
   const command = useDragStore(selectCommand);
   if (!source) return null;
   return (
-    <div className="w-max rounded bg-zinc-900 px-2 py-1 font-mono whitespace-nowrap shadow ring-1 ring-sky-400">
+    <div className="w-max rounded bg-canvas px-2 py-1 font-mono whitespace-nowrap shadow ring-1 ring-accent">
       {hasTarget ? (command ?? "no drop here") : label(source)}
     </div>
   );

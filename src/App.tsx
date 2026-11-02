@@ -43,7 +43,7 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, []);
 
-  if (startupError) return <pre className="p-4 whitespace-pre-wrap text-red-400">{startupError}</pre>;
+  if (startupError) return <pre className="p-4 whitespace-pre-wrap text-danger">{startupError}</pre>;
   if (!loaded) return null;
 
   return (

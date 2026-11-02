@@ -1,77 +1,100 @@
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 
 import * as api from "@/api";
 import { MOD } from "@/keys";
 import { KeyBadge } from "@/components/KeyBadge";
-import { createEngine } from "@/terminal/engine";
-import { useSettingsStore } from "@/store/settings";
+import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
+import { TERMINAL_THEMES } from "@/terminal/themes";
 import { useUiStore } from "@/store/ui";
 
 const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to restart]");
 
 export function TerminalPane() {
   const host = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState(0);
   const maximized = useUiStore((s) => s.shellMaximized);
-  const engine = useSettingsStore((s) => s.engine);
+  const theme = TERMINAL_THEMES[useColorScheme()];
+
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     const element = host.current;
     if (!element) return;
     let cancelled = false;
-    let dispose = () => {};
     let exited = false;
     const fail = (e: unknown) => {
-      if (!cancelled) setError(`${engine}: ${api.errorMessage(e)}`);
+      if (!cancelled) setError(api.errorMessage(e));
     };
     setError(null);
 
-    void (async () => {
-      try {
-        const term = await createEngine(engine);
-        dispose = () => term.dispose();
-        await term.mount(element);
-        if (cancelled) return term.dispose();
-        term.onData((data) => {
-          if (!exited) api.ptyWrite(data).catch(fail);
-          else if (data === "\r") setSession((n) => n + 1);
-        });
-        term.onResize(({ cols, rows }) => {
-          if (!exited) api.ptyResize(cols, rows).catch(fail);
-        });
-        const { cols, rows } = term.size();
-        await api.ptyStart(
-          cols,
-          rows,
-          (bytes) => term.write(bytes),
-          () => {
-            exited = true;
-            term.write(EXIT_NOTICE);
-          },
-        );
+    const term = new Terminal({
+      fontFamily: "monospace",
+      fontSize: 13,
+      scrollback: 10_000,
+      cursorBlink: true,
+      theme: TERMINAL_THEMES[colorScheme()],
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(element);
+    fit.fit();
+    const observer = new ResizeObserver(() => fit.fit());
+    observer.observe(element);
+    termRef.current = term;
+
+    term.onData((data) => {
+      if (!exited) api.ptyWrite(data).catch(fail);
+      else if (data === "\r") setSession((n) => n + 1);
+    });
+    term.onResize(({ cols, rows }) => {
+      if (!exited) api.ptyResize(cols, rows).catch(fail);
+    });
+
+    api
+      .ptyStart(
+        term.cols,
+        term.rows,
+        (bytes) => term.write(bytes),
+        () => {
+          exited = true;
+          term.write(EXIT_NOTICE);
+        },
+      )
+      .then(() => {
+        if (cancelled) return;
         term.focus();
         useUiStore.getState().setFocusTerminal(() => term.focus());
-      } catch (e) {
-        fail(e);
-      }
-    })();
+      })
+      .catch(fail);
 
     return () => {
       cancelled = true;
       useUiStore.getState().setFocusTerminal(() => {});
-      dispose();
+      observer.disconnect();
+      termRef.current = null;
+      term.dispose();
     };
-  }, [engine, session]);
+  }, [session]);
 
   return (
-    <div data-terminal className={`flex flex-col bg-black p-1 ${maximized ? "fixed inset-0 z-50" : "relative h-full"}`}>
+    <div
+      data-terminal
+      style={{ background: theme.background }}
+      className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-50" : "relative h-full"}`}
+    >
       {error && (
-        <pre className="absolute inset-x-0 top-0 z-10 bg-red-950 p-2 whitespace-pre-wrap text-red-300">
+        <pre className="absolute inset-x-0 top-0 z-10 bg-removed p-2 whitespace-pre-wrap text-danger">
           {error}
         </pre>
       )}
-      <div key={`${engine}-${session}`} ref={host} className="min-h-0 w-full flex-1" />
+      <div key={session} ref={host} className="min-h-0 w-full flex-1" />
       <div className="flex shrink-0 gap-3 pt-1 text-zinc-500">
         <span>
           <KeyBadge>{`${MOD}+2`}</KeyBadge> focus
