@@ -4,23 +4,23 @@ import { Group, Panel } from "react-resizable-panels";
 
 import { DiffView } from "@/components/DiffView";
 import { Handle } from "@/components/Handle";
-import { KeyBadge } from "@/components/KeyBadge";
 import { ReviewDot } from "@/components/ReviewDot";
+import { KeyBadge } from "@/components/ui/KeyBadge";
+import { StatusBar } from "@/components/ui/StatusBar";
 import { fileState } from "@/review/hunks";
 import { SelectMode, selectIsWorkingCopy, useGraphStore } from "@/store/graph";
 import { FileStatus, type FileView } from "@/types";
 
 const STATUS: Record<FileStatus, { letter: string; className: string }> = {
-  [FileStatus.Added]: { letter: "A", className: "text-green-700 dark:text-green-400" },
+  [FileStatus.Added]: { letter: "A", className: "text-success" },
   [FileStatus.Modified]: { letter: "M", className: "text-accent" },
   [FileStatus.Deleted]: { letter: "D", className: "text-danger" },
-  [FileStatus.Renamed]: { letter: "R", className: "text-purple-700 dark:text-purple-400" },
+  [FileStatus.Renamed]: { letter: "R", className: "text-special" },
 };
 
-function FileRow({ file, selected, active, reviewable }: {
+function FileRow({ file, selected, reviewable }: {
   file: FileView;
   selected: boolean;
-  active: boolean;
   reviewable: boolean;
 }) {
   const state = useGraphStore((s) => fileState(file, s.marks));
@@ -42,22 +42,19 @@ function FileRow({ file, selected, active, reviewable }: {
           .selectFile(file.path, e.shiftKey ? SelectMode.Range : e.metaKey || e.ctrlKey ? SelectMode.Toggle : SelectMode.Replace)
       }
       className={`flex items-center gap-2 px-2 py-1 ${selected ? "bg-selected" : "hover:bg-subtle"} ${
-        isDragSource ? "opacity-40" : ""
+        isDragSource ? "dragging" : ""
       }`}
     >
       {reviewable &&
         (state ? (
-          <>
-            <ReviewDot state={state} onClick={() => void useGraphStore.getState().toggleFile(file.path)} />
-            {active && <KeyBadge>R</KeyBadge>}
-          </>
+          <ReviewDot state={state} onClick={() => void useGraphStore.getState().toggleFile(file.path)} />
         ) : (
           <span className="size-3 shrink-0" />
         ))}
       <span className={`shrink-0 font-mono ${className}`}>{letter}</span>
       <div className="min-w-0 flex-1">
         <div className="truncate">{name}</div>
-        <div className="truncate text-xs text-zinc-500">{file.path}</div>
+        <div className="truncate text-xs text-muted">{file.path}</div>
       </div>
     </div>
   );
@@ -66,26 +63,24 @@ function FileRow({ file, selected, active, reviewable }: {
 export function DetailsPane() {
   const selectedId = useGraphStore((s) => s.selectedId);
   const files = useGraphStore((s) => s.files);
-  const selectedPath = useGraphStore((s) => s.selectedPath);
   const selectedPaths = useGraphStore((s) => s.selectedPaths);
   const detailsError = useGraphStore((s) => s.detailsError);
   const reviewable = useGraphStore(selectIsWorkingCopy);
   const shown = files.filter((f) => selectedPaths.includes(f.path));
 
-  if (!selectedId) return <div className="p-2 text-zinc-500">Select a change in the graph.</div>;
+  if (!selectedId) return <div className="p-2 text-muted">Select a change in the graph.</div>;
   return (
     <div className="flex h-full flex-col">
       {detailsError && <pre className="p-2 whitespace-pre-wrap text-danger">{detailsError}</pre>}
       <div className="min-h-0 flex-1">
         <Group orientation="horizontal">
-          <Panel defaultSize="35%" minSize="15%">
+          <Panel defaultSize="256px" minSize="15%">
             <div className="h-full overflow-auto">
               {files.map((file) => (
                 <FileRow
                   key={file.path}
                   file={file}
                   selected={selectedPaths.includes(file.path)}
-                  active={file.path === selectedPath}
                   reviewable={reviewable}
                 />
               ))}
@@ -97,22 +92,30 @@ export function DetailsPane() {
           </Panel>
         </Group>
       </div>
-      <footer className="flex shrink-0 gap-3 border-t border-line px-2 py-0.5 text-zinc-500">
+      <StatusBar className="flex gap-3">
         <span>
-          <KeyBadge>j</KeyBadge> <KeyBadge>k</KeyBadge> files
+          <KeyBadge>j</KeyBadge> <KeyBadge>k</KeyBadge> navigate files
         </span>
         <span>
-          <KeyBadge>[</KeyBadge> <KeyBadge>]</KeyBadge> hunks
+          <KeyBadge>[</KeyBadge> <KeyBadge>]</KeyBadge> navigate hunks
         </span>
         <span>
-          <KeyBadge>a</KeyBadge> all files
+          <KeyBadge>a</KeyBadge> select all
         </span>
         {reviewable && (
-          <span>
-            <KeyBadge>u</KeyBadge> next unreviewed
-          </span>
+          <>
+            <span>
+              <KeyBadge>Space</KeyBadge> review hunk
+            </span>
+            <span>
+              <KeyBadge>R</KeyBadge> review file
+            </span>
+            <span>
+              <KeyBadge>u</KeyBadge> next unreviewed
+            </span>
+          </>
         )}
-      </footer>
+      </StatusBar>
     </div>
   );
 }

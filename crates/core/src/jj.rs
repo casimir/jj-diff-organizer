@@ -42,6 +42,7 @@ impl Run {
 pub struct Change {
     pub change_id: String,
     pub short: String,
+    pub short_prefix: String,
     pub commit_id: String,
     pub parents: Vec<String>,
     pub desc: String,
@@ -90,6 +91,7 @@ impl Op {
 const CHANGE_TEMPLATE: &str = r#"json({
   "change_id" => change_id,
   "short" => change_id.short(8),
+  "short_prefix" => change_id.shortest(8).prefix(),
   "commit_id" => commit_id,
   "parents" => parents.map(|p| p.commit_id()),
   "desc" => description.first_line(),

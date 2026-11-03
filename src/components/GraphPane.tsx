@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 
 import { GraphRow } from "@/components/GraphRow";
-import { MOD } from "@/keys";
-import { KeyBadge } from "@/components/KeyBadge";
+import { KeyBadge } from "@/components/ui/KeyBadge";
+import { StatusBar } from "@/components/ui/StatusBar";
+import { TextInput } from "@/components/ui/TextInput";
 import { layoutGraph } from "@/graph/layout";
+import { MOD } from "@/keys";
 import { useGraphStore } from "@/store/graph";
 import { useUiStore } from "@/store/ui";
 
@@ -40,10 +42,10 @@ export function GraphPane() {
           />
         ))}
       </div>
-      <footer className="shrink-0 border-t border-line px-2 py-0.5 text-zinc-500">
-        <KeyBadge>n</KeyBadge> <KeyBadge>p</KeyBadge> next / previous change{" "}
+      <StatusBar>
+        <KeyBadge>n</KeyBadge> <KeyBadge>p</KeyBadge> next / previous change <KeyBadge>@</KeyBadge> working copy{" "}
         <KeyBadge>{`${MOD}+1`}</KeyBadge> focus
-      </footer>
+      </StatusBar>
     </div>
   );
 }
@@ -51,10 +53,9 @@ export function GraphPane() {
 function RevsetInput({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial);
   return (
-    <input
-      className="min-w-0 flex-1 rounded bg-subtle px-2 py-1 font-mono outline-none focus:ring-1 focus:ring-zinc-500"
+    <TextInput
+      className="min-w-0 flex-1"
       value={value}
-      spellCheck={false}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === "Enter") void useGraphStore.getState().setRevset(value);

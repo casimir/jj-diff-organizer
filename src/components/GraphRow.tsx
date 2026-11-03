@@ -26,11 +26,7 @@ export const GraphRow = memo(function GraphRow({
 }) {
   const { change, col, before, parentLanes, elided } = row;
   const x = laneX(col);
-  const fill = change.wc
-    ? "fill-green-600 dark:fill-green-400"
-    : change.immutable
-      ? "fill-zinc-400"
-      : "fill-canvas";
+  const fill = change.wc ? "fill-success" : change.immutable ? "fill-muted" : "fill-canvas";
 
   const ref = useRef<HTMLDivElement>(null);
   const source: DragSource = { kind: "change", change };
@@ -53,14 +49,14 @@ export const GraphRow = memo(function GraphRow({
     <div
       ref={ref}
       onClick={() => onSelect(change.change_id)}
-      className={`flex items-center ${selected ? "bg-selected" : "hover:bg-subtle"} ${
-        isDragSource ? "opacity-40" : ""
+      className={`flex items-center pl-2 ${selected ? "bg-selected" : "hover:bg-subtle"} ${
+        isDragSource ? "dragging" : ""
       } ${indicator === Zone.Onto ? "outline outline-1 -outline-offset-1 outline-accent" : ""} ${
         indicator === Zone.Above ? "border-t-2 border-accent" : ""
       } ${indicator === Zone.Below ? "border-b-2 border-accent" : ""}`}
       style={{ height: ROW_HEIGHT }}
     >
-      <svg width={laneCount * LANE_WIDTH} height={ROW_HEIGHT} className="shrink-0 stroke-zinc-500">
+      <svg width={laneCount * LANE_WIDTH} height={ROW_HEIGHT} className="shrink-0 stroke-muted">
         {before.map((id, lane) => {
           if (id === null) return null;
           const merges = id === change.commit_id;
@@ -86,12 +82,15 @@ export const GraphRow = memo(function GraphRow({
           strokeWidth={1.5}
         />
       </svg>
-      <span className="mr-2 shrink-0 font-mono text-amber-700 dark:text-amber-400">{change.short}</span>
+      <span className="mr-2 shrink-0 font-mono text-change-id">
+        <b className="text-fg">{change.short_prefix}</b>
+        {change.short.slice(change.short_prefix.length)}
+      </span>
       {change.wc && (
         <DragLabel
           id="wc"
           source={{ kind: "wc", change }}
-          className="mr-1 shrink-0 rounded bg-green-200 px-1 text-green-900 dark:bg-green-900 dark:text-green-200"
+          className="mr-1 shrink-0 rounded bg-success/20 px-1 text-success"
         >
           @
         </DragLabel>
@@ -101,12 +100,12 @@ export const GraphRow = memo(function GraphRow({
           key={b}
           id={`bookmark:${b}`}
           source={{ kind: "bookmark", name: b }}
-          className="mr-1 shrink-0 rounded bg-sky-200 px-1 text-sky-900 dark:bg-sky-900 dark:text-sky-200"
+          className="mr-1 shrink-0 rounded bg-accent/20 px-1 text-accent"
         >
           {b}
         </DragLabel>
       ))}
-      <span className={`truncate ${change.desc ? "" : "text-zinc-500 italic"}`}>
+      <span className={`truncate ${change.desc ? "" : "text-muted italic"}`}>
         {change.desc || (change.empty ? "(empty) (no description)" : "(no description)")}
       </span>
     </div>

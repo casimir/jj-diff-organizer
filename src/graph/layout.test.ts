@@ -7,6 +7,7 @@ function change(id: string, parents: string[]): Change {
   return {
     change_id: id,
     short: id,
+    short_prefix: id,
     commit_id: id,
     parents,
     desc: id,

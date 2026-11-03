@@ -1,9 +1,9 @@
 import { HunkState } from "@/review/hunks";
 
 const STYLE: Record<HunkState, { className: string; title: string }> = {
-  [HunkState.Reviewed]: { className: "border-green-500 bg-green-500", title: "Reviewed" },
-  [HunkState.Changed]: { className: "border-amber-400 bg-amber-400", title: "Changed since review" },
-  [HunkState.Unreviewed]: { className: "border-zinc-500", title: "Not reviewed" },
+  [HunkState.Reviewed]: { className: "border-success bg-success", title: "Reviewed" },
+  [HunkState.Changed]: { className: "border-warning bg-warning", title: "Changed since review" },
+  [HunkState.Unreviewed]: { className: "border-muted", title: "Not reviewed" },
 };
 
 export function ReviewDot({ state, onClick }: { state: HunkState; onClick: () => void }) {

@@ -4,11 +4,11 @@ import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 
 import * as api from "@/api";
-import { MOD } from "@/keys";
-import { KeyBadge } from "@/components/KeyBadge";
+import { KeyBadge } from "@/components/ui/KeyBadge";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
-import { TERMINAL_THEMES } from "@/terminal/themes";
+import { MOD } from "@/keys";
 import { useUiStore } from "@/store/ui";
+import { TERMINAL_THEMES } from "@/terminal/themes";
 
 const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to restart]");
 
@@ -95,7 +95,7 @@ export function TerminalPane() {
         </pre>
       )}
       <div key={session} ref={host} className="min-h-0 w-full flex-1" />
-      <div className="flex shrink-0 gap-3 pt-1 text-zinc-500">
+      <div className="flex shrink-0 gap-3 pt-1 text-muted">
         <span>
           <KeyBadge>{`${MOD}+2`}</KeyBadge> focus
         </span>

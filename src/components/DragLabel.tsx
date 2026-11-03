@@ -12,7 +12,7 @@ export function DragLabel({ id, source, className, children }: {
   const ref = useRef<HTMLSpanElement>(null);
   const { isDragSource } = useDraggable({ id, element: ref, data: { source } });
   return (
-    <span ref={ref} className={`${className} ${isDragSource ? "opacity-40" : "cursor-grab"}`}>
+    <span ref={ref} className={`${className} ${isDragSource ? "dragging" : "cursor-grab"}`}>
       {children}
     </span>
   );

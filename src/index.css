@@ -8,14 +8,31 @@
   --color-strong: light-dark(var(--color-zinc-300), var(--color-zinc-600));
   --color-fg: light-dark(var(--color-zinc-900), var(--color-zinc-200));
   --color-dim: light-dark(var(--color-zinc-600), var(--color-zinc-300));
+  --color-muted: var(--color-zinc-500);
   --color-accent: light-dark(var(--color-sky-600), var(--color-sky-400));
   --color-danger: light-dark(var(--color-red-600), var(--color-red-400));
+  --color-success: light-dark(var(--color-green-600), var(--color-green-400));
+  --color-warning: light-dark(var(--color-amber-500), var(--color-amber-400));
+  --color-special: light-dark(var(--color-purple-700), var(--color-purple-400));
+  --color-change-id: light-dark(var(--color-amber-700), var(--color-amber-400));
   --color-added: light-dark(var(--color-green-100), var(--color-green-950));
   --color-removed: light-dark(var(--color-red-100), var(--color-red-950));
+  --color-scrim: rgb(0 0 0 / 60%);
+  --color-syntax-keyword: light-dark(var(--color-purple-700), var(--color-purple-300));
+  --color-syntax-string: light-dark(var(--color-amber-700), var(--color-amber-300));
+  --color-syntax-number: light-dark(var(--color-orange-700), var(--color-orange-300));
+  --color-syntax-type: light-dark(var(--color-teal-700), var(--color-teal-300));
+  --color-syntax-function: light-dark(var(--color-sky-700), var(--color-sky-300));
+  --color-syntax-attribute: light-dark(var(--color-yellow-700), var(--color-yellow-300));
+}
+
+@utility dragging {
+  opacity: 40%;
 }
 
 :root {
   color-scheme: light dark;
+  --diff-header-h: 1.75rem;
 }
 
 html,

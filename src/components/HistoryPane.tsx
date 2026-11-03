@@ -3,7 +3,9 @@ import TimeAgo from "react-timeago";
 
 import * as api from "@/api";
 import { MOD } from "@/keys";
-import { KeyBadge } from "@/components/KeyBadge";
+import { KeyBadge } from "@/components/ui/KeyBadge";
+import { StatusBar } from "@/components/ui/StatusBar";
+import { TextInput } from "@/components/ui/TextInput";
 import { entryKey, useHistoryStore } from "@/store/history";
 import type { Entry } from "@/types";
 
@@ -49,14 +51,14 @@ export function HistoryPane() {
                   className={`flex cursor-default gap-2 px-2 py-1 ${selected ? "bg-selected" : "hover:bg-subtle"}`}
                   onClick={() => useHistoryStore.getState().select(selected ? null : key)}
                 >
-                  <span className={gui ? "text-accent" : "text-zinc-500"}>
+                  <span className={gui ? "text-accent" : "text-muted"}>
                     {gui ? "gui" : "op"}
                   </span>
                   <span className={`min-w-0 flex-1 truncate font-mono ${failed ? "text-danger" : ""}`}>
                     {command}
                   </span>
                   {failed && <span className="text-danger">failed</span>}
-                  <span className="text-zinc-500">{meta}</span>
+                  <span className="text-muted">{meta}</span>
                 </div>
                 {selected && (
                   <pre className="px-2 pb-2 font-mono whitespace-pre-wrap text-dim">{output}</pre>
@@ -66,9 +68,9 @@ export function HistoryPane() {
           })}
         </div>
       </div>
-      <footer className="shrink-0 border-t border-line px-2 py-0.5 text-zinc-500">
+      <StatusBar>
         <KeyBadge>{`${MOD}+3`}</KeyBadge> focus
-      </footer>
+      </StatusBar>
     </div>
   );
 }
@@ -93,11 +95,10 @@ function DevRunner() {
 
   return (
     <div className="border-b border-line p-1">
-      <input
-        className="w-full rounded bg-subtle px-2 py-1 font-mono outline-none focus:ring-1 focus:ring-zinc-500"
+      <TextInput
+        className="w-full"
         placeholder="dev: run jj with args"
         value={line}
-        spellCheck={false}
         onChange={(e) => setLine(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") void run();

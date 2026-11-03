@@ -7,6 +7,7 @@ export type Theme = (typeof Theme)[keyof typeof Theme];
 export interface Change {
   change_id: string;
   short: string;
+  short_prefix: string;
   commit_id: string;
   parents: string[];
   desc: string;

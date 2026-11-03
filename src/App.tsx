@@ -52,7 +52,7 @@ export function App() {
         <Group orientation="vertical" className="h-full">
           <Panel defaultSize="62%" minSize="15%">
             <Group orientation="horizontal">
-              <Panel defaultSize="50%" minSize="15%">
+              <Panel defaultSize="384px" minSize="15%">
                 <GraphPane />
               </Panel>
               <Handle orientation="horizontal" />

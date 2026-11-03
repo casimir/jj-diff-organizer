@@ -51,13 +51,18 @@ export function handleKey(e: KeyboardEvent): boolean {
   const reviewable = selectIsWorkingCopy(graph);
   if (e.key === "n") graph.moveChange(1);
   else if (e.key === "p") graph.moveChange(-1);
-  else if (e.key === "j") graph.moveFile(1);
+  else if (e.key === "@") {
+    const wc = graph.changes.find((c) => c.wc);
+    if (wc) void graph.select(wc.change_id);
+  } else if (e.key === "j") graph.moveFile(1);
   else if (e.key === "k") graph.moveFile(-1);
   else if (e.key === "]") graph.moveCursor(1, false);
   else if (e.key === "[") graph.moveCursor(-1, false);
   else if (e.key === "a") graph.selectAllFiles();
   else if (reviewable && e.key === "u") graph.moveCursor(1, true);
-  else if (reviewable && e.key === "r") void graph.toggleHunk();
+  else if (e.key === " ") {
+    if (reviewable) void graph.toggleHunk();
+  }
   else if (reviewable && e.key === "R") void graph.toggleFile();
   else return false;
   return true;

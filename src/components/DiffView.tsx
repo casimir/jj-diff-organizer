@@ -1,30 +1,29 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useDraggable } from "@dnd-kit/react";
 
-import { KeyBadge } from "@/components/KeyBadge";
 import { ReviewDot } from "@/components/ReviewDot";
 import { hunkState, segments } from "@/review/hunks";
 import { useGraphStore } from "@/store/graph";
 import { FileStatus, LineKind, type DiffLine, type FileView } from "@/types";
 
 const TOKEN_CLASS: Record<string, string> = {
-  keyword: "text-purple-700 dark:text-purple-300",
-  stringlit: "text-amber-700 dark:text-amber-300",
-  comment: "text-zinc-500",
-  number: "text-orange-700 dark:text-orange-300",
-  type: "text-teal-700 dark:text-teal-300",
-  function: "text-sky-700 dark:text-sky-300",
+  keyword: "text-syntax-keyword",
+  stringlit: "text-syntax-string",
+  comment: "text-muted",
+  number: "text-syntax-number",
+  type: "text-syntax-type",
+  function: "text-syntax-function",
   variable: "text-fg",
   operator: "text-dim",
   punctuation: "text-dim",
-  attribute: "text-yellow-700 dark:text-yellow-300",
+  attribute: "text-syntax-attribute",
 };
 
 const LINE_CLASS: Record<LineKind, string> = {
   [LineKind.Context]: "",
   [LineKind.Added]: "bg-added",
   [LineKind.Removed]: "bg-removed",
-  [LineKind.Separator]: "text-zinc-500 italic",
+  [LineKind.Separator]: "text-muted italic",
 };
 
 const SIGN: Record<LineKind, string> = {
@@ -40,9 +39,9 @@ function Line({ line }: { line: DiffLine }) {
   }
   return (
     <div className={`flex ${LINE_CLASS[line.kind]}`}>
-      <span className="w-10 shrink-0 pr-1 text-right text-zinc-500 select-none">{line.old}</span>
-      <span className="w-10 shrink-0 pr-1 text-right text-zinc-500 select-none">{line.new}</span>
-      <span className="w-4 shrink-0 text-zinc-500 select-none">{SIGN[line.kind]}</span>
+      <span className="w-10 shrink-0 pr-1 text-right text-muted select-none">{line.old}</span>
+      <span className="w-10 shrink-0 pr-1 text-right text-muted select-none">{line.new}</span>
+      <span className="w-4 shrink-0 text-muted select-none">{SIGN[line.kind]}</span>
       <span className="whitespace-pre">
         {line.spans.map((s, i) => (
           <span key={i} className={TOKEN_CLASS[s.token]}>
@@ -81,7 +80,7 @@ function Hunk({ file, group, lines, reviewable }: {
     <div
       ref={ref}
       onClick={() => useGraphStore.getState().setCursor(pos)}
-      className={`flex ${isCursor ? "ring-1 ring-accent ring-inset" : ""} ${isDragSource ? "opacity-40" : ""}`}
+      className={`flex scroll-mt-[calc(var(--diff-header-h)+1lh)] scroll-mb-[1lh] ${isCursor ? "ring-1 ring-accent ring-inset" : ""} ${isDragSource ? "dragging" : ""}`}
     >
       {reviewable && (
         <div className={`${RAIL} flex flex-col items-center gap-1 pt-1`}>
@@ -92,7 +91,6 @@ function Hunk({ file, group, lines, reviewable }: {
               void useGraphStore.getState().toggleHunk();
             }}
           />
-          {isCursor && <KeyBadge>r</KeyBadge>}
         </div>
       )}
       <div className="min-w-0 flex-1">
@@ -113,7 +111,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
   );
   return (
     <section className="w-max min-w-full">
-      <div className="sticky top-0 z-10 border-b border-line bg-canvas px-2 py-1 font-sans">
+      <div className="sticky top-0 z-10 flex h-(--diff-header-h) items-center border-b border-line bg-canvas px-2 font-sans">
         {file.path}
       </div>
       {blocks.map((block, i) =>
