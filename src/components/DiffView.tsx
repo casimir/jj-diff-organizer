@@ -104,6 +104,23 @@ function Hunk({ file, group, lines, reviewable }: {
   );
 }
 
+function FileTitle({ file }: { file: FileView }) {
+  if (!file.old_path) return file.path;
+  if (file.status === FileStatus.Renamed) {
+    return (
+      <>
+        <span className="text-muted">{file.old_path} → </span>
+        {file.path}
+      </>
+    );
+  }
+  return (
+    <>
+      {file.path} <span className="text-muted">(copied from {file.old_path})</span>
+    </>
+  );
+}
+
 function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean }) {
   const blocks = useMemo(
     () => (file.binary ? [{ group: 0, lines: [] }] : segments(file.lines)),
@@ -112,8 +129,9 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
   return (
     <section className="w-max min-w-full">
       <div className="sticky top-0 z-10 flex h-(--diff-header-h) items-center border-b border-line bg-canvas px-2 font-sans">
-        {file.path}
+        <FileTitle file={file} />
       </div>
+      {blocks.length === 0 && <div className="px-2 py-1 text-dim">No content changes</div>}
       {blocks.map((block, i) =>
         block.group === null ? (
           <div key={i} className="flex">

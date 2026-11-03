@@ -29,7 +29,13 @@ function FileRow({ file, selected, reviewable }: {
     id: `file:${file.path}`,
     element: ref,
     disabled: !reviewable,
-    data: { source: { kind: "file", path: file.path } },
+    data: {
+      source: {
+        kind: "file",
+        path: file.path,
+        renamedFrom: file.status === FileStatus.Renamed ? file.old_path : null,
+      },
+    },
   });
   const name = file.path.split("/").pop();
   const { letter, className } = STATUS[file.status];

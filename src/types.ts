@@ -75,6 +75,7 @@ export interface DiffLine {
 
 export interface FileView {
   path: string;
+  old_path: string | null;
   status: FileStatus;
   binary: boolean;
   digests: string[];

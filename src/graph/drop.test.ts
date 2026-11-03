@@ -67,7 +67,7 @@ describe("dropArgs", () => {
 });
 
 describe("dropArgs for review items", () => {
-  const file: DragSource = { kind: "file", path: "src/a.ts" };
+  const file: DragSource = { kind: "file", path: "src/a.ts", renamedFrom: null };
   const hunk: DragSource = { kind: "hunk", path: "src/a.ts", digest: "d1" };
 
   it("squashes a file whole and a hunk through the diff editor", () => {
@@ -77,8 +77,15 @@ describe("dropArgs for review items", () => {
     ]);
   });
 
+  it("squashes a renamed file under both names so the rename moves whole", () => {
+    const renamed: DragSource = { kind: "file", path: "src/b.ts", renamedFrom: "src/a.ts" };
+    expect(dropArgs(renamed, y, Zone.Onto, false)).toEqual([
+      "squash", "--into", "y", "--use-destination-message", "src/a.ts", "src/b.ts",
+    ]);
+  });
+
   it("quotes paths that jj would parse as fileset syntax", () => {
-    expect(dropArgs({ kind: "file", path: 'my "dir"/a b.ts' }, y, Zone.Onto, false)).toEqual([
+    expect(dropArgs({ kind: "file", path: 'my "dir"/a b.ts', renamedFrom: null }, y, Zone.Onto, false)).toEqual([
       "squash", "--into", "y", "--use-destination-message", 'root-file:"my \\"dir\\"/a b.ts"',
     ]);
   });

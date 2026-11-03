@@ -190,10 +190,33 @@ fn parsed_diff_rebuilds_both_sides_exactly_as_jj_stores_them() {
         } else {
             jj_ok(p, &["file", "show", "-r", "@", &pair.path])
         };
-        assert_eq!((&pair.old, &pair.new), (&old, &new), "{}", pair.path);
+        assert_eq!(
+            (&pair.old_content, &pair.content),
+            (&old, &new),
+            "{}",
+            pair.path
+        );
     }
     let status_of = |name: &str| pairs.iter().find(|f| f.path == name).unwrap().status;
     assert_eq!(status_of("added.txt"), Status::Added);
     assert_eq!(status_of("deleted.txt"), Status::Deleted);
     assert_eq!(status_of("modified.txt"), Status::Modified);
+}
+
+#[test]
+fn a_pure_rename_keeps_its_source_path_and_has_no_content_change() {
+    let dir = init_repo();
+    let p = dir.path();
+    std::fs::write(p.join("old.txt"), "one\ntwo\n").unwrap();
+    jj_ok(p, &["commit", "-m", "base"]);
+    std::fs::rename(p.join("old.txt"), p.join("new.txt")).unwrap();
+    jj_ok(p, &["status"]);
+
+    let pairs = Jj::new(Repo::discover(p).unwrap()).diff("@").unwrap();
+
+    assert_eq!(pairs.len(), 1);
+    assert_eq!(pairs[0].status, Status::Renamed);
+    assert_eq!(pairs[0].path, "new.txt");
+    assert_eq!(pairs[0].old_path.as_deref(), Some("old.txt"));
+    assert_eq!(pairs[0].old_content, pairs[0].content);
 }

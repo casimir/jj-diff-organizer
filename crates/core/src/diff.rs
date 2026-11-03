@@ -16,9 +16,10 @@ pub enum Status {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FilePair {
     pub path: String,
+    pub old_path: Option<String>,
     pub status: Status,
-    pub old: String,
-    pub new: String,
+    pub content: String,
+    pub old_content: String,
     pub binary: bool,
     /// Blob id of the new side, the identity of a binary file's only "hunk".
     pub blob: Option<String>,
@@ -27,6 +28,7 @@ pub struct FilePair {
 #[derive(Debug, Serialize)]
 pub struct FileView {
     pub path: String,
+    pub old_path: Option<String>,
     pub status: Status,
     pub binary: bool,
     pub digests: Vec<String>,
@@ -77,9 +79,10 @@ fn parse_section(section: &[u8]) -> FilePair {
 
     let mut pair = FilePair {
         path,
+        old_path: None,
         status: Status::Modified,
-        old: String::new(),
-        new: String::new(),
+        content: String::new(),
+        old_content: String::new(),
         binary: std::str::from_utf8(section).is_err(),
         blob: None,
     };
@@ -92,20 +95,20 @@ fn parse_section(section: &[u8]) -> FilePair {
                 Some(c @ (' ' | '-' | '+')) => {
                     last = c;
                     if c != '+' {
-                        pair.old.push_str(body);
-                        pair.old.push('\n');
+                        pair.old_content.push_str(body);
+                        pair.old_content.push('\n');
                     }
                     if c != '-' {
-                        pair.new.push_str(body);
-                        pair.new.push('\n');
+                        pair.content.push_str(body);
+                        pair.content.push('\n');
                     }
                 }
                 Some('\\') => {
                     if last != '+' {
-                        pair.old.pop();
+                        pair.old_content.pop();
                     }
                     if last != '-' {
-                        pair.new.pop();
+                        pair.content.pop();
                     }
                 }
                 _ => {}
@@ -116,9 +119,13 @@ fn parse_section(section: &[u8]) -> FilePair {
             pair.status = Status::Added;
         } else if line.starts_with("deleted file mode") {
             pair.status = Status::Deleted;
+        } else if let Some(from) = line.strip_prefix("rename from ") {
+            pair.old_path = Some(from.to_owned());
         } else if let Some(to) = line.strip_prefix("rename to ") {
             pair.status = Status::Renamed;
             pair.path = to.to_owned();
+        } else if let Some(from) = line.strip_prefix("copy from ") {
+            pair.old_path = Some(from.to_owned());
         } else if let Some(to) = line.strip_prefix("copy to ") {
             pair.status = Status::Added;
             pair.path = to.to_owned();
@@ -133,8 +140,11 @@ fn parse_section(section: &[u8]) -> FilePair {
         }
     }
     if pair.binary {
-        pair.old.clear();
-        pair.new.clear();
+        pair.old_content.clear();
+        pair.content.clear();
+    }
+    if pair.status == Status::Added {
+        pair.old_content.clear();
     }
     pair
 }
@@ -143,6 +153,7 @@ pub fn file_view(pair: FilePair) -> FileView {
     if pair.binary {
         return FileView {
             path: pair.path,
+            old_path: pair.old_path,
             status: pair.status,
             binary: true,
             digests: pair.blob.into_iter().collect(),
@@ -150,7 +161,7 @@ pub fn file_view(pair: FilePair) -> FileView {
         };
     }
 
-    let diff = compute_file_diff(&pair.path, &pair.old, &pair.new, false);
+    let diff = compute_file_diff(&pair.path, &pair.old_content, &pair.content, false);
     let mut next_group = 0;
     let mut group = None;
     let lines = diff
@@ -186,8 +197,9 @@ pub fn file_view(pair: FilePair) -> FileView {
         .collect();
 
     FileView {
-        digests: hunk_digests(&pair.old, &pair.new),
+        digests: hunk_digests(&pair.old_content, &pair.content),
         path: pair.path,
+        old_path: pair.old_path,
         status: pair.status,
         binary: false,
         lines,
@@ -218,9 +230,10 @@ mod tests {
         ]);
         let pair = FilePair {
             path: "a.txt".into(),
+            old_path: None,
             status: Status::Modified,
-            old,
-            new,
+            content: new,
+            old_content: old,
             binary: false,
             blob: None,
         };
@@ -231,5 +244,20 @@ mod tests {
         groups.dedup();
         assert_eq!(groups, [0, 1, 2]);
         assert_eq!(view.digests.len(), 3);
+    }
+
+    #[test]
+    fn a_copy_is_an_addition_that_remembers_its_source() {
+        let git = b"diff --git a/src.txt b/copy.txt\ncopy from src.txt\ncopy to copy.txt\nindex 1..2 100644\n--- a/src.txt\n+++ b/copy.txt\n@@ -1,2 +1,3 @@\n a\n+b\n c\n";
+
+        let pairs = parse_git_diff(git);
+
+        assert_eq!(pairs.len(), 1);
+        let pair = &pairs[0];
+        assert_eq!(pair.path, "copy.txt");
+        assert_eq!(pair.old_path.as_deref(), Some("src.txt"));
+        assert_eq!(pair.status, Status::Added);
+        assert_eq!(pair.old_content, "");
+        assert_eq!(pair.content, "a\nb\nc\n");
     }
 }

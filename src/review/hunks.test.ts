@@ -4,7 +4,7 @@ import { HunkState, hunkState, nextHunk } from "@/review/hunks";
 import { FileStatus, type FileView } from "@/types";
 
 function file(path: string, digests: string[]): FileView {
-  return { path, status: FileStatus.Modified, binary: false, digests, lines: [] };
+  return { path, old_path: null, status: FileStatus.Modified, binary: false, digests, lines: [] };
 }
 
 describe("hunkState", () => {
