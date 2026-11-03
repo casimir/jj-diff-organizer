@@ -24,20 +24,18 @@ export interface Run {
   stdout: string;
   stderr: string;
   exit_code: number | null;
-  duration_ms: number;
-  op_before: string[];
+  started: number;
   op_after: string[];
 }
 
-export interface Op {
+export interface Entry {
   id: string;
-  description: string;
-  is_snapshot: boolean;
-  time: { start: string };
-  attributes: { args: string };
+  time: number;
+  command: string;
+  gui: boolean;
+  failed: boolean;
+  detail: string;
 }
-
-export type Entry = { source: "gui"; run: Run } | { source: "op_log"; op: Op; gui: boolean };
 
 export interface RepoInfo {
   root: string;

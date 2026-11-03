@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
-use std::time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
@@ -23,18 +23,13 @@ pub struct Run {
     pub stdout: String,
     pub stderr: String,
     pub exit_code: Option<i32>,
-    pub duration_ms: u64,
-    pub op_before: Vec<String>,
+    pub started: u64,
     pub op_after: Vec<String>,
 }
 
 impl Run {
     pub fn failed(&self) -> bool {
         self.exit_code != Some(0)
-    }
-
-    pub fn created_op(&self) -> bool {
-        self.op_before != self.op_after
     }
 }
 
@@ -53,19 +48,23 @@ pub struct Change {
     pub conflict: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Op {
     pub id: String,
     pub description: String,
     pub is_snapshot: bool,
-    pub time: OpTime,
+    #[serde(skip_deserializing)]
+    pub start_ms: u64,
     pub attributes: OpAttributes,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OpTime {
-    pub start: String,
+#[derive(Deserialize)]
+struct OpLine {
+    op: Op,
+    start_ms: String,
 }
+
+const OP_TEMPLATE: &str = r#""{\"op\":" ++ json(self) ++ ",\"start_ms\":\"" ++ self.time().start().format("%s%3f") ++ "\"}\n""#;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OpAttributes {
@@ -129,15 +128,13 @@ impl Jj {
     /// Runs a mutating (or any) command and records everything about it. `config` holds
     /// `--config` arguments that jj gets but the recorded command leaves out.
     pub fn run(&self, id: u64, args: &[String], config: &[String]) -> Run {
-        let op_before = self.repo.op_heads();
-        let started = Instant::now();
+        let started = now_ms();
         let out = self
             .command(&["--color=never", "--no-pager"])
             .args(["--config", GUI_MARKER])
             .args(config)
             .args(args)
             .output();
-        let duration_ms = started.elapsed().as_millis() as u64;
         let (stdout, stderr, exit_code) = match out {
             Ok(o) => (
                 String::from_utf8_lossy(&o.stdout).into_owned(),
@@ -152,8 +149,7 @@ impl Jj {
             stdout,
             stderr,
             exit_code,
-            duration_ms,
-            op_before,
+            started,
             op_after: self.repo.op_heads(),
         }
     }
@@ -206,10 +202,19 @@ impl Jj {
                 "--limit",
                 &limit,
                 "--template",
-                r#"json(self) ++ "\n""#,
+                OP_TEMPLATE,
             ],
         )?;
-        parse_lines(&out)
+        parse_lines::<OpLine>(&out)?
+            .into_iter()
+            .map(|l| {
+                let start_ms = l
+                    .start_ms
+                    .parse()
+                    .map_err(|e| format!("bad op time {}: {e}", l.start_ms))?;
+                Ok(Op { start_ms, ..l.op })
+            })
+            .collect()
     }
 
     pub fn diff(&self, rev: &str) -> Result<Vec<FilePair>, String> {
@@ -273,6 +278,13 @@ pub fn hunk_tool_config(exe: &Path, path: &str, digest: &str) -> Vec<String> {
         "--config".into(),
         format!("merge-tools.{HUNK_TOOL}.edit-args=[{edit_args}]"),
     ]
+}
+
+pub fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("the clock is after 1970")
+        .as_millis() as u64
 }
 
 pub fn display_command(args: &[String]) -> String {

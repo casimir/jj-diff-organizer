@@ -220,3 +220,15 @@ fn a_pure_rename_keeps_its_source_path_and_has_no_content_change() {
     assert_eq!(pairs[0].old_path.as_deref(), Some("old.txt"));
     assert_eq!(pairs[0].old_content, pairs[0].content);
 }
+
+#[test]
+fn op_log_reads_every_op_including_the_root_at_epoch_zero() {
+    let dir = init_repo();
+    let jj = Jj::new(Repo::discover(dir.path()).unwrap());
+
+    let ops = jj.op_log(100).unwrap();
+
+    let root = ops.last().unwrap();
+    assert_eq!(root.start_ms, 0);
+    assert!(ops[0].start_ms > 0);
+}

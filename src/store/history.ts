@@ -3,10 +3,6 @@ import { create } from "zustand";
 import * as api from "@/api";
 import type { Entry } from "@/types";
 
-export function entryKey(entry: Entry): string {
-  return entry.source === "gui" ? `gui-${entry.run.id}` : `op-${entry.op.id}`;
-}
-
 interface HistoryState {
   entries: Entry[];
   error: string | null;

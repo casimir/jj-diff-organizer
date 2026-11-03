@@ -42,7 +42,7 @@ export const useDragStore = create<DragState>((set, get) => ({
     try {
       const source = get().source;
       const run = await api.runJj(a, source?.kind === "hunk" ? { path: source.path, digest: source.digest } : undefined);
-      if (run.exit_code !== 0) useHistoryStore.getState().select(`gui-${run.id}`);
+      if (run.exit_code !== 0) useHistoryStore.getState().select(`failure-${run.id}`);
     } catch (e) {
       useGraphStore.setState({ error: api.errorMessage(e) });
     }

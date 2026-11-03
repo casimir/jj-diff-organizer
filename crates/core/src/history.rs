@@ -4,67 +4,87 @@ use serde::Serialize;
 
 use crate::jj::{Op, Run};
 
-const MAX_RUNS: usize = 200;
+const MAX_FAILURES: usize = 200;
+
+/// A command of the app that failed, so it created no operation.
+#[derive(Debug, Clone)]
+pub struct Failure {
+    pub id: u64,
+    pub started: u64,
+    pub command: String,
+    pub output: String,
+}
+
+impl From<&Run> for Failure {
+    fn from(run: &Run) -> Self {
+        Self {
+            id: run.id,
+            started: run.started,
+            command: run.command.clone(),
+            output: [run.stdout.as_str(), run.stderr.as_str()]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "source", rename_all = "snake_case")]
-pub enum Entry {
-    Gui { run: Run },
-    OpLog { op: Op, gui: bool },
+pub struct Entry {
+    pub id: String,
+    pub time: u64,
+    pub command: String,
+    pub gui: bool,
+    pub failed: bool,
+    pub detail: String,
 }
 
 #[derive(Debug, Default)]
 pub struct History {
-    runs: VecDeque<Run>,
+    failures: VecDeque<Failure>,
 }
 
 impl History {
-    pub fn push(&mut self, run: Run) {
-        if self.runs.len() == MAX_RUNS {
-            self.runs.pop_front();
+    pub fn push(&mut self, failure: Failure) {
+        if self.failures.len() == MAX_FAILURES {
+            self.failures.pop_front();
         }
-        self.runs.push_back(run);
+        self.failures.push_back(failure);
     }
 
-    /// Chronological entries, oldest first. `ops` is the op log, newest first.
-    ///
-    /// A GUI run that created an operation replaces that operation's entry. A run that
-    /// created none (it failed, or had nothing to do) follows the operation that was
-    /// current when it ran. Snapshot operations are hidden.
+    /// Chronological entries, oldest first: the op log without its snapshot operations, with
+    /// the failures placed by time.
     pub fn entries(&self, ops: &[Op]) -> Vec<Entry> {
-        let mut out = Vec::new();
-        let mut placed = vec![false; self.runs.len()];
-
-        for op in ops.iter().rev() {
-            let creator = self
-                .runs
-                .iter()
-                .position(|r| r.created_op() && r.op_after == [op.id.clone()]);
-            match creator {
-                Some(i) => {
-                    placed[i] = true;
-                    out.push(Entry::Gui {
-                        run: self.runs[i].clone(),
-                    });
+        let mut out: Vec<Entry> = ops
+            .iter()
+            .filter(|op| !op.is_snapshot)
+            .map(|op| {
+                let gui = op.from_gui();
+                let op = op.clone().without_marker();
+                Entry {
+                    id: op.id.clone(),
+                    time: op.start_ms,
+                    command: if op.attributes.args.is_empty() {
+                        op.description.clone()
+                    } else {
+                        op.attributes.args.clone()
+                    },
+                    gui,
+                    failed: false,
+                    detail: op.description,
                 }
-                None if !op.is_snapshot => out.push(Entry::OpLog {
-                    gui: op.from_gui(),
-                    op: op.clone().without_marker(),
-                }),
-                None => {}
-            }
-            for (i, run) in self.runs.iter().enumerate() {
-                if !placed[i] && !run.created_op() && run.op_before == [op.id.clone()] {
-                    placed[i] = true;
-                    out.push(Entry::Gui { run: run.clone() });
-                }
-            }
-        }
-        for (i, run) in self.runs.iter().enumerate() {
-            if !placed[i] {
-                out.push(Entry::Gui { run: run.clone() });
-            }
-        }
+            })
+            .chain(self.failures.iter().map(|f| Entry {
+                id: format!("failure-{}", f.id),
+                time: f.started,
+                command: f.command.clone(),
+                gui: true,
+                failed: true,
+                detail: f.output.clone(),
+            }))
+            .collect();
+        out.sort_by_key(|e| e.time);
         out
     }
 }
@@ -72,73 +92,52 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jj::{OpAttributes, OpTime};
+    use crate::jj::OpAttributes;
 
-    fn op(id: &str, is_snapshot: bool) -> Op {
+    fn op(id: &str, is_snapshot: bool, start_ms: u64) -> Op {
         Op {
             id: id.into(),
             description: String::new(),
             is_snapshot,
-            time: OpTime {
-                start: String::new(),
-            },
+            start_ms,
             attributes: OpAttributes::default(),
         }
     }
 
-    fn run(id: u64, exit_code: i32, before: &str, after: &str) -> Run {
-        Run {
+    fn failure(id: u64, started: u64) -> Failure {
+        Failure {
             id,
+            started,
             command: format!("run {id}"),
-            stdout: String::new(),
-            stderr: String::new(),
-            exit_code: Some(exit_code),
-            duration_ms: 0,
-            op_before: vec![before.into()],
-            op_after: vec![after.into()],
+            output: String::new(),
         }
     }
 
     #[test]
     fn marker_is_hidden_from_the_recorded_command() {
-        let mut o = op("a", false);
+        let mut o = op("a", false, 1);
         o.attributes.args =
             "jj '--color=never' --no-pager --config 'jjdo.gui=true' --quiet new".into();
         let entries = History::default().entries(&[o]);
-        let Entry::OpLog { op, gui } = &entries[0] else {
-            panic!()
-        };
-        assert!(gui);
+        assert!(entries[0].gui);
         assert_eq!(
-            op.attributes.args,
+            entries[0].command,
             "jj '--color=never' --no-pager --quiet new"
         );
     }
 
-    fn label(entry: &Entry) -> String {
-        match entry {
-            Entry::Gui { run } => format!("gui:{}", run.id),
-            Entry::OpLog { op, .. } => format!("op:{}", op.id),
-        }
-    }
-
     #[test]
-    fn gui_runs_replace_their_op_and_failures_follow_the_current_op() {
+    fn failures_are_placed_among_the_ops_by_time_and_snapshots_are_hidden() {
         let mut history = History::default();
-        history.push(run(1, 0, "snap", "created"));
-        history.push(run(2, 1, "created", "created"));
-        let ops_newest_first = [
-            op("created", false),
-            op("snap", true),
-            op("external", false),
-        ];
+        history.push(failure(1, 15));
+        let ops_newest_first = [op("b", false, 20), op("snap", true, 17), op("a", false, 10)];
 
-        let labels: Vec<String> = history
+        let ids: Vec<String> = history
             .entries(&ops_newest_first)
-            .iter()
-            .map(label)
+            .into_iter()
+            .map(|e| e.id)
             .collect();
 
-        assert_eq!(labels, ["op:external", "gui:1", "gui:2"]);
+        assert_eq!(ids, ["a", "failure-1", "b"]);
     }
 }

@@ -5,9 +5,9 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use jjdo_core::diff::{FileView, file_view};
-use jjdo_core::history::{Entry, History};
+use jjdo_core::history::{Entry, Failure, History};
 use jjdo_core::hunk::try_editor;
-use jjdo_core::jj::{Change, Jj, Run, hunk_tool_config};
+use jjdo_core::jj::{Change, Jj, Run, hunk_tool_config, now_ms};
 use jjdo_core::pty::Pty;
 use jjdo_core::repo::Repo;
 use jjdo_core::review::{FileMarks, Store};
@@ -120,7 +120,9 @@ async fn run_jj(
     let jj = app.jj.clone();
     let id = app.next_run.fetch_add(1, Ordering::SeqCst);
     let run = blocking(move || jj.run(id, &args, &config)).await?;
-    app.history.lock().unwrap().push(run.clone());
+    if run.failed() {
+        app.history.lock().unwrap().push(Failure::from(&run));
+    }
     notify_changed(&handle, run.op_after.clone());
     Ok(run)
 }
@@ -180,15 +182,11 @@ fn notify_changed(handle: &AppHandle, heads: Vec<String>) {
 fn record_failure(handle: &AppHandle, command: &str, message: String) {
     let state = handle.state::<App>();
     let id = state.next_run.fetch_add(1, Ordering::SeqCst);
-    state.history.lock().unwrap().push(Run {
+    state.history.lock().unwrap().push(Failure {
         id,
+        started: now_ms(),
         command: command.into(),
-        stdout: String::new(),
-        stderr: message,
-        exit_code: None,
-        duration_ms: 0,
-        op_before: Vec::new(),
-        op_after: Vec::new(),
+        output: message,
     });
     notify_changed(handle, Vec::new());
 }
@@ -200,7 +198,7 @@ fn snapshot(handle: AppHandle) {
         let id = state.next_run.fetch_add(1, Ordering::SeqCst);
         let run = state.jj.run(id, &["util".into(), "snapshot".into()], &[]);
         if run.failed() {
-            state.history.lock().unwrap().push(run);
+            state.history.lock().unwrap().push(Failure::from(&run));
             notify_changed(&handle, Vec::new());
         }
     });

@@ -6,29 +6,7 @@ import { MOD } from "@/keys";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { TextInput } from "@/components/ui/TextInput";
-import { entryKey, useHistoryStore } from "@/store/history";
-import type { Entry } from "@/types";
-
-function describe(entry: Entry) {
-  if (entry.source === "gui") {
-    const { run } = entry;
-    return {
-      gui: true,
-      command: run.command,
-      failed: run.exit_code !== 0,
-      meta: `${run.duration_ms} ms`,
-      output: [run.stdout, run.stderr].filter(Boolean).join("\n"),
-    };
-  }
-  const { op } = entry;
-  return {
-    gui: entry.gui,
-    command: op.attributes.args || op.description,
-    failed: false,
-    meta: <TimeAgo date={op.time.start} title={new Date(op.time.start).toLocaleString()} />,
-    output: op.description,
-  };
-}
+import { useHistoryStore } from "@/store/history";
 
 export function HistoryPane() {
   const entries = useHistoryStore((s) => s.entries);
@@ -41,15 +19,13 @@ export function HistoryPane() {
       {error && <pre className="p-2 whitespace-pre-wrap text-danger">{error}</pre>}
       <div className="flex min-h-0 flex-1 flex-col-reverse overflow-auto">
         <div>
-          {entries.map((entry) => {
-            const key = entryKey(entry);
-            const { gui, command, failed, meta, output } = describe(entry);
-            const selected = key === selectedKey;
+          {entries.map(({ id, time, command, gui, failed, detail }) => {
+            const selected = id === selectedKey;
             return (
-              <div key={key} className="border-b border-line">
+              <div key={id} className="border-b border-line">
                 <div
                   className={`flex cursor-default gap-2 px-2 py-1 ${selected ? "bg-selected" : "hover:bg-subtle"}`}
-                  onClick={() => useHistoryStore.getState().select(selected ? null : key)}
+                  onClick={() => useHistoryStore.getState().select(selected ? null : id)}
                 >
                   <span className={gui ? "text-accent" : "text-muted"}>
                     {gui ? "gui" : "op"}
@@ -58,10 +34,12 @@ export function HistoryPane() {
                     {command}
                   </span>
                   {failed && <span className="text-danger">failed</span>}
-                  <span className="text-muted">{meta}</span>
+                  <span className="text-muted">
+                    <TimeAgo date={time} title={new Date(time).toLocaleString()} />
+                  </span>
                 </div>
                 {selected && (
-                  <pre className="px-2 pb-2 font-mono whitespace-pre-wrap text-dim">{output}</pre>
+                  <pre className="px-2 pb-2 font-mono whitespace-pre-wrap text-dim">{detail}</pre>
                 )}
               </div>
             );
