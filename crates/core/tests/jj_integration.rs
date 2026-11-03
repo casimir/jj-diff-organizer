@@ -66,6 +66,10 @@ fn two_hunk_repo() -> (TempDir, String, String) {
 }
 
 fn squash_hunk(dir: &Path, digest: &str) -> std::process::Output {
+    squash_hunk_into(dir, "target", digest)
+}
+
+fn squash_hunk_into(dir: &Path, into: &str, digest: &str) -> std::process::Output {
     let probe = env!("CARGO_BIN_EXE_hunk-probe");
     Command::new("jj")
         .args(["--no-pager", "--color=never"])
@@ -75,7 +79,7 @@ fn squash_hunk(dir: &Path, digest: &str) -> std::process::Output {
             "--from",
             "source",
             "--into",
-            "target",
+            into,
             "--use-destination-message",
             "--tool",
             HUNK_TOOL,
@@ -104,6 +108,30 @@ fn squash_tool_moves_only_the_selected_hunk() {
     assert_eq!(
         jj_ok(p, &["file", "show", "-r", "target", "a.txt"]),
         numbered(&[(2, "edited 2")])
+    );
+    assert_eq!(
+        jj_ok(p, &["file", "show", "-r", "source", "a.txt"]),
+        numbered(&[(18, "edited 18")])
+    );
+}
+
+#[test]
+fn squash_tool_moves_a_hunk_from_a_parent_into_the_working_copy() {
+    let (dir, old, new) = two_hunk_repo();
+    let p = dir.path();
+    let digests = hunk_digests(&old, &new);
+    jj_ok(p, &["new", "source"]);
+
+    let out = squash_hunk_into(p, "@", &digests[0]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    assert_eq!(
+        jj_ok(p, &["file", "show", "-r", "@", "a.txt"]),
+        numbered(&[(2, "edited 2"), (18, "edited 18")])
     );
     assert_eq!(
         jj_ok(p, &["file", "show", "-r", "source", "a.txt"]),

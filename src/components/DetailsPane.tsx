@@ -8,7 +8,7 @@ import { ReviewDot } from "@/components/ReviewDot";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { fileState } from "@/review/hunks";
-import { SelectMode, selectIsWorkingCopy, useGraphStore } from "@/store/graph";
+import { SelectMode, selectIsWorkingCopy, selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, type FileView } from "@/types";
 
 const STATUS: Record<FileStatus, { letter: string; className: string }> = {
@@ -24,14 +24,16 @@ function FileRow({ file, selected, reviewable }: {
   reviewable: boolean;
 }) {
   const state = useGraphStore((s) => fileState(file, s.marks));
+  const change = useGraphStore(selectSelectedChange);
   const ref = useRef<HTMLDivElement>(null);
   const { isDragSource } = useDraggable({
     id: `file:${file.path}`,
     element: ref,
-    disabled: !reviewable,
+    disabled: !change || change.immutable,
     data: {
       source: {
         kind: "file",
+        from: change,
         path: file.path,
         renamedFrom: file.status === FileStatus.Renamed ? file.old_path : null,
       },

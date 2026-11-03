@@ -11,8 +11,8 @@ export type DragSource =
   | { kind: "change"; change: Change }
   | { kind: "bookmark"; name: string }
   | { kind: "wc"; change: Change }
-  | { kind: "file"; path: string; renamedFrom: string | null }
-  | { kind: "hunk"; path: string; digest: string };
+  | { kind: "file"; from: Change; path: string; renamedFrom: string | null }
+  | { kind: "hunk"; from: Change; path: string; digest: string };
 
 /** Name of the diff editor the backend defines for a hunk move (`HUNK_TOOL` in `crates/core/src/jj.rs`). */
 export const HUNK_TOOL = "jjdo-hunk";
@@ -59,10 +59,13 @@ export function dropArgs(
       return ["edit", target.short];
     case "file":
     case "hunk": {
-      if (target.immutable || target.wc) return null;
+      if (source.from.change_id === target.change_id || source.from.immutable || target.immutable) return null;
       const tool = source.kind === "hunk" ? ["--tool", HUNK_TOOL] : [];
       const paths = source.kind === "file" && source.renamedFrom ? [source.renamedFrom, source.path] : [source.path];
-      return ["squash", "--into", target.short, "--use-destination-message", ...tool, ...paths.map(filesetPath)];
+      return [
+        "squash", "--from", source.from.short, "--into", target.short, "--use-destination-message",
+        ...tool, ...paths.map(filesetPath),
+      ];
     }
   }
 }

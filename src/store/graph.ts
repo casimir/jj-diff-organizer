@@ -43,9 +43,12 @@ let latestRefresh = 0;
 let latestDetails = 0;
 let latestMarks = 0;
 
-/** Review marks and moves apply to the working copy only. */
+export const selectSelectedChange = (s: Pick<GraphState, "changes" | "selectedId">) =>
+  s.changes.find((c) => c.change_id === s.selectedId);
+
+/** Review marks apply to the working copy only. */
 export const selectIsWorkingCopy = (s: Pick<GraphState, "changes" | "selectedId">) =>
-  s.changes.find((c) => c.change_id === s.selectedId)?.wc ?? false;
+  selectSelectedChange(s)?.wc ?? false;
 
 export const useGraphStore = create<GraphState>((set, get) => {
   const loadDetails = async (changeId: string) => {

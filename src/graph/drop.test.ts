@@ -67,32 +67,39 @@ describe("dropArgs", () => {
 });
 
 describe("dropArgs for review items", () => {
-  const file: DragSource = { kind: "file", path: "src/a.ts", renamedFrom: null };
-  const hunk: DragSource = { kind: "hunk", path: "src/a.ts", digest: "d1" };
+  const file: DragSource = { kind: "file", from: x, path: "src/a.ts", renamedFrom: null };
+  const hunk: DragSource = { kind: "hunk", from: x, path: "src/a.ts", digest: "d1" };
 
   it("squashes a file whole and a hunk through the diff editor", () => {
-    expect(dropArgs(file, y, Zone.Onto, false)).toEqual(["squash", "--into", "y", "--use-destination-message", "src/a.ts"]);
+    expect(dropArgs(file, y, Zone.Onto, false)).toEqual([
+      "squash", "--from", "x", "--into", "y", "--use-destination-message", "src/a.ts",
+    ]);
     expect(dropArgs(hunk, y, Zone.Onto, false)).toEqual([
-      "squash", "--into", "y", "--use-destination-message", "--tool", HUNK_TOOL, "src/a.ts",
+      "squash", "--from", "x", "--into", "y", "--use-destination-message", "--tool", HUNK_TOOL, "src/a.ts",
     ]);
   });
 
   it("squashes a renamed file under both names so the rename moves whole", () => {
-    const renamed: DragSource = { kind: "file", path: "src/b.ts", renamedFrom: "src/a.ts" };
+    const renamed: DragSource = { kind: "file", from: x, path: "src/b.ts", renamedFrom: "src/a.ts" };
     expect(dropArgs(renamed, y, Zone.Onto, false)).toEqual([
-      "squash", "--into", "y", "--use-destination-message", "src/a.ts", "src/b.ts",
+      "squash", "--from", "x", "--into", "y", "--use-destination-message", "src/a.ts", "src/b.ts",
     ]);
   });
 
   it("quotes paths that jj would parse as fileset syntax", () => {
-    expect(dropArgs({ kind: "file", path: 'my "dir"/a b.ts', renamedFrom: null }, y, Zone.Onto, false)).toEqual([
-      "squash", "--into", "y", "--use-destination-message", 'root-file:"my \\"dir\\"/a b.ts"',
+    expect(dropArgs({ kind: "file", from: x, path: 'my "dir"/a b.ts', renamedFrom: null }, y, Zone.Onto, false)).toEqual([
+      "squash", "--from", "x", "--into", "y", "--use-destination-message", 'root-file:"my \\"dir\\"/a b.ts"',
     ]);
   });
 
-  it("refuses immutable targets and the working copy", () => {
+  it("moves into the working copy from another change", () => {
+    expect(dropArgs(hunk, change("w", { wc: true }), Zone.Onto, false)).not.toBeNull();
+  });
+
+  it("refuses its own change and immutable sources or targets", () => {
+    expect(dropArgs(file, x, Zone.Onto, false)).toBeNull();
     expect(dropArgs(file, change("m", { immutable: true }), Zone.Onto, false)).toBeNull();
-    expect(dropArgs(hunk, change("w", { wc: true }), Zone.Onto, false)).toBeNull();
+    expect(dropArgs({ ...hunk, from: change("m", { immutable: true }) }, y, Zone.Onto, false)).toBeNull();
   });
 });
 

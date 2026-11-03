@@ -3,7 +3,7 @@ import { useDraggable } from "@dnd-kit/react";
 
 import { ReviewDot } from "@/components/ReviewDot";
 import { hunkState, segments } from "@/review/hunks";
-import { useGraphStore } from "@/store/graph";
+import { selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, LineKind, type DiffLine, type FileView } from "@/types";
 
 const TOKEN_CLASS: Record<string, string> = {
@@ -64,12 +64,14 @@ function Hunk({ file, group, lines, reviewable }: {
   const state = useGraphStore((s) => hunkState(file, s.marks, group));
   const isCursor = useGraphStore((s) => s.cursor?.path === file.path && s.cursor.group === group);
   const ref = useRef<HTMLDivElement>(null);
-  const movable = reviewable && !file.binary && (file.status === FileStatus.Modified || file.status === FileStatus.Added);
+  const change = useGraphStore(selectSelectedChange);
+  const movable =
+    !!change && !change.immutable && !file.binary && (file.status === FileStatus.Modified || file.status === FileStatus.Added);
   const { isDragSource } = useDraggable({
     id: `hunk:${file.path}:${group}`,
     element: ref,
     disabled: !movable,
-    data: { source: { kind: "hunk", path: file.path, digest: file.digests[group] } },
+    data: { source: { kind: "hunk", from: change, path: file.path, digest: file.digests[group] } },
   });
   useEffect(() => {
     if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
