@@ -106,6 +106,7 @@ export const GraphRow = memo(function GraphRow({
           className="mr-1 shrink-0 rounded bg-accent/20 px-1 text-accent"
         >
           {b}
+          {change.unsynced_bookmarks.includes(b) && "*"}
         </DragLabel>
       ))}
       <span className={`truncate ${change.desc ? "" : "text-muted italic"}`}>

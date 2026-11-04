@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::diff::{FilePair, parse_git_diff};
+use crate::diff::{parse_git_diff, FilePair};
 use crate::hunk::EDITOR_COMMAND;
 use crate::repo::Repo;
 
@@ -43,6 +43,7 @@ pub struct Change {
     pub parents: Vec<String>,
     pub desc: String,
     pub bookmarks: Vec<String>,
+    pub unsynced_bookmarks: Vec<String>,
     pub wc: bool,
     pub immutable: bool,
     pub empty: bool,
@@ -95,7 +96,8 @@ const CHANGE_TEMPLATE: &str = r#"json({
   "commit_id" => commit_id,
   "parents" => parents.map(|p| p.commit_id()),
   "desc" => description.first_line(),
-  "bookmarks" => bookmarks.map(|b| b.name()),
+  "bookmarks" => bookmarks.filter(|b| !b.remote()).map(|b| b.name()),
+  "unsynced_bookmarks" => bookmarks.filter(|b| !b.remote() && !b.synced()).map(|b| b.name()),
   "wc" => current_working_copy,
   "immutable" => immutable,
   "empty" => empty,

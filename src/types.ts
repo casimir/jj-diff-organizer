@@ -12,6 +12,7 @@ export interface Change {
   parents: string[];
   desc: string;
   bookmarks: string[];
+  unsynced_bookmarks: string[];
   wc: boolean;
   immutable: boolean;
   empty: boolean;

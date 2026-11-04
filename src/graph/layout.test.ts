@@ -12,6 +12,7 @@ function change(id: string, parents: string[]): Change {
     parents,
     desc: id,
     bookmarks: [],
+    unsynced_bookmarks: [],
     wc: false,
     immutable: false,
     empty: false,
