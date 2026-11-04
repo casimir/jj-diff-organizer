@@ -151,6 +151,16 @@ async fn graph(app: State<'_, App>, revset: String) -> Result<Vec<Change>, Strin
 }
 
 #[tauri::command]
+async fn successors(
+    app: State<'_, App>,
+    revset: String,
+    change_id: String,
+) -> Result<Vec<String>, String> {
+    let jj = app.session()?.jj.clone();
+    blocking(move || jj.successors(&revset, &change_id)).await?
+}
+
+#[tauri::command]
 async fn show(app: State<'_, App>, change_id: String) -> Result<Vec<FileView>, String> {
     let jj = app.session()?.jj.clone();
     blocking(move || {
@@ -346,6 +356,7 @@ fn run_app() {
             current_repo,
             open_repo,
             graph,
+            successors,
             show,
             marks,
             review_set,

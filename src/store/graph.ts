@@ -53,6 +53,15 @@ export const selectSelectedChange = (s: Pick<GraphState, "changes" | "selectedId
 export const selectIsWorkingCopy = (s: Pick<GraphState, "changes" | "selectedId">) =>
   selectSelectedChange(s)?.wc ?? false;
 
+const EMPTY_DETAILS: Partial<GraphState> = {
+  files: [],
+  marks: {},
+  selectedPath: null,
+  selectedPaths: [],
+  cursor: null,
+  detailsError: null,
+};
+
 export const useGraphStore = create<GraphState>((set, get) => {
   const loadDetails = async (changeId: string) => {
     const seq = ++latestDetails;
@@ -85,6 +94,25 @@ export const useGraphStore = create<GraphState>((set, get) => {
     } catch (e) {
       if (seq === latestMarks && get().selectedId === changeId) set({ detailsError: api.errorMessage(e) });
     }
+  };
+
+  const followVanished = async (changeId: string, revset: string, seq: number) => {
+    let successor: string | undefined;
+    let error: string | null = null;
+    try {
+      const ids = await api.successors(revset, changeId);
+      if (ids.length === 1) successor = ids[0];
+    } catch (e) {
+      error = api.errorMessage(e);
+    }
+    if (seq !== latestRefresh || get().selectedId !== changeId) return;
+
+    if (successor) {
+      await get().select(successor);
+      return;
+    }
+    latestDetails++;
+    set({ selectedId: null, ...EMPTY_DETAILS, ...(error && { error }) });
   };
 
   const toggle = async (file: FileView, digests: string[], reviewed: boolean) => {
@@ -126,15 +154,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
 
     select: async (changeId) => {
       if (get().selectedId === changeId) return;
-      set({
-        selectedId: changeId,
-        files: [],
-        marks: {},
-        selectedPath: null,
-        selectedPaths: [],
-        cursor: null,
-        detailsError: null,
-      });
+      set({ selectedId: changeId, ...EMPTY_DETAILS });
       await loadDetails(changeId);
     },
 
@@ -209,7 +229,12 @@ export const useGraphStore = create<GraphState>((set, get) => {
       const details = selectedId ? loadDetails(selectedId) : Promise.resolve();
       try {
         const changes = await api.graph(revset);
-        if (seq === latestRefresh) set({ changes, error: null });
+        if (seq === latestRefresh) {
+          set({ changes, error: null });
+          if (selectedId && !changes.some((c) => c.change_id === selectedId)) {
+            await followVanished(selectedId, revset, seq);
+          }
+        }
       } catch (e) {
         if (seq === latestRefresh) set({ error: api.errorMessage(e) });
       }

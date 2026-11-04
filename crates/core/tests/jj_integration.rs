@@ -260,3 +260,38 @@ fn op_log_reads_every_op_including_the_root_at_epoch_zero() {
     assert_eq!(root.start_ms, 0);
     assert!(ops[0].start_ms > 0);
 }
+
+fn change_id(dir: &Path, rev: &str) -> String {
+    jj_ok(dir, &["log", "--no-graph", "-r", rev, "-T", "change_id"])
+}
+
+#[test]
+fn successors_follow_a_squash_but_not_an_abandon() {
+    let (dir, old, new) = two_hunk_repo();
+    let p = dir.path();
+    let jj = Jj::new(Repo::discover(p).unwrap());
+    let source = change_id(p, "source");
+    let target = change_id(p, "target");
+    let digests = hunk_digests(&old, &new);
+
+    assert!(jj.successors("all()", &source).unwrap().is_empty());
+
+    let out = squash_hunk(p, &digests[0]);
+    assert!(out.status.success());
+    assert_eq!(jj.successors("all()", &source).unwrap(), [target]);
+
+    jj_ok(p, &["abandon", "source"]);
+    assert!(
+        jj.successors("all()", &change_id(p, "target"))
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn successors_reject_an_id_that_would_break_out_of_the_template() {
+    let dir = init_repo();
+    let jj = Jj::new(Repo::discover(dir.path()).unwrap());
+
+    assert!(jj.successors("all()", "x\") ++ \"").is_err());
+}

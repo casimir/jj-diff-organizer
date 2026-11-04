@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::diff::{parse_git_diff, FilePair};
+use crate::diff::{FilePair, parse_git_diff};
 use crate::hunk::EDITOR_COMMAND;
 use crate::repo::Repo;
 
@@ -176,6 +176,32 @@ impl Jj {
         )?;
         // Graph mode orders changes by branch like the CLI; drop the glyph columns.
         parse_lines(out.lines().filter_map(|l| l.find('{').map(|i| &l[i..])))
+    }
+
+    pub fn successors(&self, revset: &str, change_id: &str) -> Result<Vec<String>, String> {
+        if !change_id.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return Err(format!("invalid change id: {change_id}"));
+        }
+        let template = format!(
+            r#"if(stringify(commit.change_id()) != "{change_id}" && predecessors.any(|p| stringify(p.change_id()) == "{change_id}"), commit.change_id() ++ "\n")"#
+        );
+        let out = self.read(
+            &READ_FLAGS,
+            &[
+                "evolog",
+                "--revisions",
+                revset,
+                "--no-graph",
+                "--template",
+                &template,
+            ],
+        )?;
+        Ok(out
+            .lines()
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect())
     }
 
     pub fn mutable_change_ids(&self) -> Result<BTreeSet<String>, String> {
