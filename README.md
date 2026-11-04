@@ -1,10 +1,11 @@
 # jj-diff-organizer
 
-A `jj` companion for those that love drag'n'drop as much as CLI.
+A `jj` companion for those that love drag'n'drop as much as command lines.
 
 ## Install
 
-Download from [Releases](https://github.com/casimir/jj-diff-organizer/releases/latest). The app updates itself (Window > "Check for updates…").
+Download from [Releases](https://github.com/casimir/jj-diff-organizer/releases/latest). The app updates itself.
+
 On macOS, `xattr -dr com.apple.quarantine` the app after a browser download.
 
 ## Release
