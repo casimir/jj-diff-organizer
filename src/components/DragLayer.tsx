@@ -37,7 +37,7 @@ function label(source: DragSource): string {
 
 function DragPreview() {
   const source = useDragStore((s) => s.source);
-  const hasTarget = useDragStore((s) => s.target !== null);
+  const hasTarget = useDragStore((s) => s.target !== null || s.terminal);
   const command = useDragStore(selectCommand);
   if (!source) return null;
   return (
@@ -60,6 +60,7 @@ export function DragLayer({ children }: { children: ReactNode }) {
       onDragMove={({ operation }) => {
         const { target } = operation;
         if (!target) return useDragStore.getState().over(null, Zone.Onto);
+        if (target.data.terminal) return useDragStore.getState().overTerminal();
         const rect = target.shape?.boundingRectangle;
         if (!rect) return;
         useDragStore

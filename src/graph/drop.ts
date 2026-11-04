@@ -72,7 +72,7 @@ export function dropArgs(
 
 const PLAIN = /^[A-Za-z0-9\-_./:=@+,%]+$/;
 
-function shellQuote(arg: string): string {
+export function shellQuote(arg: string): string {
   return PLAIN.test(arg) ? arg : `'${arg.replaceAll("'", `'\\''`)}'`;
 }
 

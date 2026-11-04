@@ -1,12 +1,14 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { useDroppable } from "@dnd-kit/react";
 import { useEffect, useRef, useState } from "react";
 
 import * as api from "@/api";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
 import { MOD } from "@/keys";
+import { selectCommand, useDragStore } from "@/store/drag";
 import { useUiStore } from "@/store/ui";
 import { TERMINAL_THEMES } from "@/terminal/themes";
 
@@ -14,6 +16,9 @@ const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to 
 
 export function TerminalPane() {
   const host = useRef<HTMLDivElement>(null);
+  const pane = useRef<HTMLDivElement>(null);
+  useDroppable({ id: "terminal", element: pane, data: { terminal: true } });
+  const dropHere = useDragStore((s) => s.terminal && selectCommand(s) !== null);
   const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState(0);
@@ -71,12 +76,17 @@ export function TerminalPane() {
         if (cancelled) return;
         term.focus();
         useUiStore.getState().setFocusTerminal(() => term.focus());
+        useUiStore.getState().setInsertIntoTerminal((text) => {
+          if (!exited) api.ptyWrite(text).catch(fail);
+          term.focus();
+        });
       })
       .catch(fail);
 
     return () => {
       cancelled = true;
       useUiStore.getState().setFocusTerminal(() => {});
+      useUiStore.getState().setInsertIntoTerminal(() => {});
       observer.disconnect();
       termRef.current = null;
       term.dispose();
@@ -85,9 +95,12 @@ export function TerminalPane() {
 
   return (
     <div
+      ref={pane}
       data-terminal
       style={{ background: theme.background }}
-      className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-50" : "relative h-full"}`}
+      className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-50" : "relative h-full"} ${
+        dropHere ? "outline outline-1 -outline-offset-1 outline-accent" : ""
+      }`}
     >
       {error && (
         <pre className="absolute inset-x-0 top-0 z-10 bg-removed p-2 whitespace-pre-wrap text-danger">
