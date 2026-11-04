@@ -1,3 +1,4 @@
+mod menu;
 mod updater;
 
 use std::ffi::OsString;
@@ -325,14 +326,20 @@ fn main() -> ExitCode {
 
 fn run_app() {
     tauri::Builder::default()
-        .menu(updater::menu)
+        .menu(menu::menu)
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .on_menu_event(|app, event| {
-            if event.id() == updater::CHECK_MENU_ID {
-                updater::check(app, true);
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            updater::CHECK_MENU_ID => updater::check(app, true),
+            menu::RELOAD_MENU_ID => {
+                if let Some(window) = app.get_webview_window("main")
+                    && let Err(e) = window.reload()
+                {
+                    eprintln!("reload failed: {e}");
+                }
             }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             start_dir,

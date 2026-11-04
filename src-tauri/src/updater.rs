@@ -1,23 +1,12 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use tauri::menu::{Menu, MenuItem, WINDOW_SUBMENU_ID};
-use tauri::{AppHandle, Wry};
+use tauri::AppHandle;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::UpdaterExt;
 
 pub const CHECK_MENU_ID: &str = "check-for-updates";
 
 static BUSY: AtomicBool = AtomicBool::new(false);
-
-pub fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
-    let menu = Menu::default(app)?;
-    let item = MenuItem::with_id(app, CHECK_MENU_ID, "Check for updates…", true, None::<&str>)?;
-    menu.get(WINDOW_SUBMENU_ID)
-        .expect("the default menu has a window submenu")
-        .as_submenu_unchecked()
-        .append(&item)?;
-    Ok(menu)
-}
 
 pub fn check(app: &AppHandle, manual: bool) {
     if BUSY.swap(true, Ordering::SeqCst) {
