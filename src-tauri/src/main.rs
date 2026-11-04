@@ -1,10 +1,10 @@
 mod updater;
 
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::ExitCode;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
 
 use jjdo_core::diff::{FileView, file_view};
 use jjdo_core::history::{Entry, Failure, History};
@@ -20,19 +20,29 @@ use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 const OP_LOG_LIMIT: usize = 200;
 
-struct App {
+struct Session {
     jj: Jj,
-    history: Mutex<History>,
-    next_run: AtomicU64,
-    pty: Mutex<Option<Pty>>,
-    op_watch: Mutex<Option<OpWatch>>,
-    workspace_watch: Mutex<Option<WorkspaceWatch>>,
-    snapshotting: Mutex<()>,
     review: Mutex<Store>,
+    op_watch: OpWatch,
     _review_watch: ReviewWatch,
 }
 
+struct App {
+    session: OnceLock<Session>,
+    history: Mutex<History>,
+    next_run: AtomicU64,
+    pty: Mutex<Option<Pty>>,
+    workspace_watch: Mutex<Option<WorkspaceWatch>>,
+    snapshotting: Mutex<()>,
+}
+
 impl App {
+    fn session(&self) -> Result<&Session, String> {
+        self.session
+            .get()
+            .ok_or_else(|| "no repository open".into())
+    }
+
     fn next_run_id(&self) -> u64 {
         self.next_run.fetch_add(1, Ordering::SeqCst)
     }
@@ -64,27 +74,84 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-async fn repo_info(app: State<'_, App>) -> Result<RepoInfo, String> {
-    let jj = app.jj.clone();
-    blocking(move || {
-        jj.default_revset().map(|default_revset| RepoInfo {
-            root: jj.repo().root.display().to_string(),
-            default_revset,
-        })
+fn repo_info(jj: &Jj) -> Result<RepoInfo, String> {
+    Ok(RepoInfo {
+        root: jj.repo().root.display().to_string(),
+        default_revset: jj.default_revset()?,
     })
-    .await?
+}
+
+fn open_session(handle: &AppHandle, dir: &Path) -> Result<(Session, RepoInfo), String> {
+    let repo = Repo::discover(dir)?;
+    let store = Store::open(repo.root.join(".jj").join("jjdo").join("reviews"))?;
+    let jj = Jj::new(repo.clone());
+    store.prune(&jj.mutable_change_ids()?)?;
+    let info = repo_info(&jj)?;
+    let on_review = handle.clone();
+    let review_watch = ReviewWatch::start(store.dir(), move |ids| {
+        emit(&on_review, "review-changed", ids);
+    })?;
+    let on_op = handle.clone();
+    let op_watch = OpWatch::start(repo, move |heads| notify_changed(&on_op, heads))?;
+    let session = Session {
+        jj,
+        review: Mutex::new(store),
+        op_watch,
+        _review_watch: review_watch,
+    };
+    Ok((session, info))
+}
+
+#[tauri::command]
+async fn current_repo(app: State<'_, App>) -> Result<Option<RepoInfo>, String> {
+    let Some(session) = app.session.get() else {
+        return Ok(None);
+    };
+    let jj = session.jj.clone();
+    blocking(move || repo_info(&jj)).await?.map(Some)
+}
+
+#[tauri::command]
+fn start_dir() -> Option<String> {
+    let arg: Option<OsString> = std::env::args_os()
+        .skip(1)
+        .find(|a| !a.to_string_lossy().starts_with('-'));
+    std::env::var_os("JJDO_REPO")
+        .or(arg)
+        .map(|dir| dir.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+async fn open_repo(
+    handle: AppHandle,
+    app: State<'_, App>,
+    path: String,
+) -> Result<RepoInfo, String> {
+    if app.session.get().is_some() {
+        return Err("a repository is already open".into());
+    }
+    let opener = handle.clone();
+    let (session, info) = blocking(move || open_session(&opener, Path::new(&path))).await??;
+    app.session
+        .set(session)
+        .map_err(|_| "a repository is already open".to_string())?;
+    if let Some(window) = handle.get_webview_window("main")
+        && window.is_focused().map_err(|e| e.to_string())?
+    {
+        on_focus_changed(&handle, true);
+    }
+    Ok(info)
 }
 
 #[tauri::command]
 async fn graph(app: State<'_, App>, revset: String) -> Result<Vec<Change>, String> {
-    let jj = app.jj.clone();
+    let jj = app.session()?.jj.clone();
     blocking(move || jj.graph(&revset)).await?
 }
 
 #[tauri::command]
 async fn show(app: State<'_, App>, change_id: String) -> Result<Vec<FileView>, String> {
-    let jj = app.jj.clone();
+    let jj = app.session()?.jj.clone();
     blocking(move || {
         jj.diff(&change_id)
             .map(|pairs| pairs.into_iter().map(file_view).collect())
@@ -94,7 +161,7 @@ async fn show(app: State<'_, App>, change_id: String) -> Result<Vec<FileView>, S
 
 #[tauri::command]
 fn marks(app: State<'_, App>, change_id: String) -> Result<FileMarks, String> {
-    app.review.lock().unwrap().marks(&change_id)
+    app.session()?.review.lock().unwrap().marks(&change_id)
 }
 
 #[tauri::command]
@@ -106,7 +173,8 @@ fn review_set(
     reviewed: bool,
     current: Vec<String>,
 ) -> Result<(), String> {
-    app.review
+    app.session()?
+        .review
         .lock()
         .unwrap()
         .set(&change_id, &path, &digests, reviewed, &current)
@@ -114,7 +182,7 @@ fn review_set(
 
 #[tauri::command]
 async fn history(app: State<'_, App>) -> Result<Vec<Entry>, String> {
-    let jj = app.jj.clone();
+    let jj = app.session()?.jj.clone();
     let ops = blocking(move || jj.op_log(OP_LOG_LIMIT)).await??;
     Ok(app.history.lock().unwrap().entries(&ops))
 }
@@ -133,7 +201,7 @@ async fn run_jj(
         }
         None => Vec::new(),
     };
-    let jj = app.jj.clone();
+    let jj = app.session()?.jj.clone();
     let id = app.next_run_id();
     let run = blocking(move || jj.run(id, &args, &config)).await?;
     app.record_if_failed(&run);
@@ -152,7 +220,7 @@ fn pty_start(
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into());
     let pty = Pty::spawn(
         &shell,
-        &app.jj.repo().root,
+        &app.session()?.jj.repo().root,
         cols,
         rows,
         move |bytes| {
@@ -211,8 +279,11 @@ fn record_failure(handle: &AppHandle, command: &str, message: String) {
 fn snapshot(handle: AppHandle) {
     std::thread::spawn(move || {
         let state = handle.state::<App>();
+        let Ok(session) = state.session() else {
+            return;
+        };
         let _one_at_a_time = state.snapshotting.lock().unwrap();
-        let run = state.jj.run(
+        let run = session.jj.run(
             state.next_run_id(),
             &["util".into(), "snapshot".into()],
             &[],
@@ -229,26 +300,17 @@ fn on_focus_changed(handle: &AppHandle, focused: bool) {
         *state.workspace_watch.lock().unwrap() = None;
         return;
     }
-    if let Some(op_watch) = state.op_watch.lock().unwrap().as_ref() {
-        op_watch.check();
-    }
+    let Ok(session) = state.session() else {
+        return;
+    };
+    session.op_watch.check();
     snapshot(handle.clone());
     let on_edit = handle.clone();
-    match WorkspaceWatch::start(state.jj.repo().root.clone(), move || {
+    match WorkspaceWatch::start(session.jj.repo().root.clone(), move || {
         snapshot(on_edit.clone())
     }) {
         Ok(watch) => *state.workspace_watch.lock().unwrap() = Some(watch),
         Err(e) => record_failure(handle, "watch working copy", e),
-    }
-}
-
-fn repo_start_dir() -> Result<PathBuf, String> {
-    let arg: Option<OsString> = std::env::args_os()
-        .skip(1)
-        .find(|a| !a.to_string_lossy().starts_with('-'));
-    match std::env::var_os("JJDO_REPO").or(arg) {
-        Some(dir) => Ok(dir.into()),
-        None => std::env::current_dir().map_err(|e| e.to_string()),
     }
 }
 
@@ -273,42 +335,34 @@ fn run_app() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            repo_info, graph, show, marks, review_set, history, run_jj, pty_start, pty_write,
+            start_dir,
+            current_repo,
+            open_repo,
+            graph,
+            show,
+            marks,
+            review_set,
+            history,
+            run_jj,
+            pty_start,
+            pty_write,
             pty_resize
         ])
         .setup(|app| {
             #[cfg(not(debug_assertions))]
             updater::check(app.handle(), false);
 
-            let repo = Repo::discover(&repo_start_dir()?)?;
-            let store = Store::open(repo.root.join(".jj").join("jjdo").join("reviews"))?;
-            let jj = Jj::new(repo.clone());
-            store.prune(&jj.mutable_change_ids()?)?;
-            let on_review = app.handle().clone();
-            let review_watch = ReviewWatch::start(store.dir(), move |ids| {
-                emit(&on_review, "review-changed", ids);
-            })?;
             app.manage(App {
-                jj,
+                session: OnceLock::new(),
                 history: Mutex::default(),
                 next_run: AtomicU64::new(1),
                 pty: Mutex::default(),
-                op_watch: Mutex::default(),
                 workspace_watch: Mutex::default(),
                 snapshotting: Mutex::default(),
-                review: Mutex::new(store),
-                _review_watch: review_watch,
             });
-
-            let handle = app.handle().clone();
-            let op_watch = OpWatch::start(repo, move |heads| notify_changed(&handle, heads))?;
-            *app.state::<App>().op_watch.lock().unwrap() = Some(op_watch);
 
             if let Some(window) = app.get_webview_window("main") {
                 let handle = app.handle().clone();
-                if window.is_focused()? {
-                    on_focus_changed(&handle, true);
-                }
                 window.on_window_event(move |event| {
                     if let WindowEvent::Focused(focused) = event {
                         on_focus_changed(&handle, *focused);

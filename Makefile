@@ -1,9 +1,10 @@
 .PHONY: check test
 
 check:
-	cargo check --workspace
+	cargo fmt --check
+	cargo check
 	npm run typecheck
 
 test:
-	cargo test --workspace
+	cargo test
 	npm test

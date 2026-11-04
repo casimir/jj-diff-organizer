@@ -3,7 +3,9 @@ import { listen } from "@tauri-apps/api/event";
 
 import type { Change, Entry, FileView, HunkRef, Marks, RepoInfo, Run } from "@/types";
 
-export const repoInfo = () => invoke<RepoInfo>("repo_info");
+export const startDir = () => invoke<string | null>("start_dir");
+export const currentRepo = () => invoke<RepoInfo | null>("current_repo");
+export const openRepo = (path: string) => invoke<RepoInfo>("open_repo", { path });
 export const graph = (revset: string) => invoke<Change[]>("graph", { revset });
 export const show = (changeId: string) => invoke<FileView[]>("show", { changeId });
 export const marks = (changeId: string) => invoke<Marks>("marks", { changeId });

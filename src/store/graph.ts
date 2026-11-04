@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import * as api from "@/api";
 import { HunkState, nextHunk, samePos, type HunkPos } from "@/review/hunks";
-import type { Change, FileView, Marks } from "@/types";
+import type { Change, FileView, Marks, RepoInfo } from "@/types";
 
 export const SelectMode = {
   Replace: "replace",
@@ -24,7 +24,7 @@ interface GraphState {
   selectedPaths: string[];
   cursor: HunkPos | null;
   detailsError: string | null;
-  init: () => Promise<void>;
+  init: (info: RepoInfo) => Promise<void>;
   setRevset: (revset: string) => Promise<void>;
   select: (changeId: string) => Promise<void>;
   moveChange: (step: 1 | -1) => void;
@@ -112,8 +112,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
     cursor: null,
     detailsError: null,
 
-    init: async () => {
-      const info = await api.repoInfo();
+    init: async (info) => {
       set({ root: info.root, revset: info.default_revset });
       await get().refresh();
       const wc = get().changes.find((c) => c.wc);

@@ -9,13 +9,16 @@ import { Handle } from "@/components/Handle";
 import { HistoryPane } from "@/components/HistoryPane";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { TerminalPane } from "@/components/TerminalPane";
+import { WelcomePage } from "@/components/WelcomePage";
 import { handleKey } from "@/keys";
+import { RepoStatus, useRepoStore } from "@/store/repo";
 import { useSettingsStore } from "@/store/settings";
-import { startSync } from "@/store/sync";
 import { useUiStore } from "@/store/ui";
 
 export function App() {
   const loaded = useSettingsStore((s) => s.loaded);
+  const repoStatus = useRepoStore((s) => s.status);
+  const repoFatal = useRepoStore((s) => s.fatal);
   const settingsOpen = useUiStore((s) => s.settingsOpen);
   const [startupError, setStartupError] = useState<string | null>(null);
   const historyPanel = usePanelRef();
@@ -27,12 +30,11 @@ export function App() {
   }, [historyPanel]);
 
   useEffect(() => {
-    useSettingsStore.getState().init().catch((e) => setStartupError(errorMessage(e)));
-    const stopSync = startSync().catch((e) => {
-      setStartupError(errorMessage(e));
-      return () => {};
-    });
-    return () => void stopSync.then((stop) => stop());
+    useSettingsStore
+      .getState()
+      .init()
+      .then(() => useRepoStore.getState().start())
+      .catch((e) => setStartupError(errorMessage(e)));
   }, []);
 
   useEffect(() => {
@@ -43,8 +45,10 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, []);
 
-  if (startupError) return <pre className="p-4 whitespace-pre-wrap text-danger">{startupError}</pre>;
-  if (!loaded) return null;
+  const fatal = startupError ?? repoFatal;
+  if (fatal) return <pre className="p-4 whitespace-pre-wrap text-danger">{fatal}</pre>;
+  if (!loaded || repoStatus === RepoStatus.Pending) return null;
+  if (repoStatus === RepoStatus.Welcome) return <WelcomePage />;
 
   return (
     <>

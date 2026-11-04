@@ -16,7 +16,7 @@ On macOS, `xattr -dr com.apple.quarantine` the app after a browser download.
 
 ```
 npm install
-JJDO_REPO=/path/to/jj/repo npm run tauri dev
+npm run tauri dev
 ```
 
 Run against a clean scratch repo.
@@ -25,7 +25,7 @@ Run against a clean scratch repo.
 scripts/scratch-repo.sh && JJDO_REPO=$PWD/sandbox/repo npm run tauri dev
 ```
 
-Repo resolution: `JJDO_REPO`, else the first non-flag argument, else the current directory.
+The repo to open can be specified as an argument or in the env with `JJDO_REPO`. Or it can be opened from the app itself.
 
 ## Tooling
 
