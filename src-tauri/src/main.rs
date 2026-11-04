@@ -1,3 +1,5 @@
+mod updater;
+
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -261,12 +263,23 @@ fn main() -> ExitCode {
 
 fn run_app() {
     tauri::Builder::default()
+        .menu(updater::menu)
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .on_menu_event(|app, event| {
+            if event.id() == updater::CHECK_MENU_ID {
+                updater::check(app, true);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             repo_info, graph, show, marks, review_set, history, run_jj, pty_start, pty_write,
             pty_resize
         ])
         .setup(|app| {
+            #[cfg(not(debug_assertions))]
+            updater::check(app.handle(), false);
+
             let repo = Repo::discover(&repo_start_dir()?)?;
             let store = Store::open(repo.root.join(".jj").join("jjdo").join("reviews"))?;
             let jj = Jj::new(repo.clone());

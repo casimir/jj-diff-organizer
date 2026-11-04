@@ -2,6 +2,15 @@
 
 A `jj` companion for those that love drag'n'drop as much as CLI.
 
+## Install
+
+Download from [Releases](https://github.com/casimir/jj-diff-organizer/releases/latest). The app updates itself (Window > "Check for updates…").
+On macOS, `xattr -dr com.apple.quarantine` the app after a browser download.
+
+## Release
+
+`npm version patch --no-git-tag-version`, push, `gh workflow run release`.
+
 ## Run
 
 ```
