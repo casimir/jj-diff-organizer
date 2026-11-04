@@ -6,19 +6,21 @@ import { useEffect, useRef, useState } from "react";
 
 import * as api from "@/api";
 import { KeyBadge } from "@/components/ui/KeyBadge";
+import { dropProps, TERMINAL_ACCEPTS, terminalEffect } from "@/graph/drop";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
 import { MOD } from "@/keys";
 import { selectCommand, useDragStore } from "@/store/drag";
 import { useUiStore } from "@/store/ui";
 import { TERMINAL_THEMES } from "@/terminal/themes";
 
+const TERMINAL_ID = "terminal";
 const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to restart]");
 
 export function TerminalPane() {
   const host = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
-  useDroppable({ id: "terminal", element: pane, data: { terminal: true } });
-  const dropHere = useDragStore((s) => s.terminal && selectCommand(s) !== null);
+  useDroppable({ id: TERMINAL_ID, element: pane, ...dropProps(terminalEffect, TERMINAL_ACCEPTS) });
+  const dropHere = useDragStore((s) => s.targetId === TERMINAL_ID && selectCommand(s) !== null);
   const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState(0);

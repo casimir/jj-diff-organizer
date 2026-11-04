@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 
-import { Zone, zoneAt, type DragSource } from "@/graph/drop";
+import { Zone, zoneAt, type DragSource, type DropEffect } from "@/graph/drop";
 import { selectCommand, useDragStore } from "@/store/drag";
 
 function useTrackShiftWhileDragging() {
@@ -37,7 +37,7 @@ function label(source: DragSource): string {
 
 function DragPreview() {
   const source = useDragStore((s) => s.source);
-  const hasTarget = useDragStore((s) => s.target !== null || s.terminal);
+  const hasTarget = useDragStore((s) => s.effect !== null);
   const command = useDragStore(selectCommand);
   if (!source) return null;
   return (
@@ -47,25 +47,32 @@ function DragPreview() {
   );
 }
 
-/** Drags start in the graph and the details pane, and end on graph rows, so one provider wraps both. */
+type Entity = { data: Record<string, any> } | null | undefined;
+
+const sourceOf = (draggable: Entity): DragSource | null => draggable?.data.source ?? null;
+const effectOf = (droppable: Entity): DropEffect | null => droppable?.data.effect ?? null;
+
 export function DragLayer({ children }: { children: ReactNode }) {
   useTrackShiftWhileDragging();
   return (
     <DragDropProvider
       onDragStart={({ operation }) => {
-        const source: DragSource = operation.source?.data.source;
+        const source = sourceOf(operation.source);
+        if (!source) return;
+
         const shift = operation.activatorEvent instanceof PointerEvent && operation.activatorEvent.shiftKey;
         useDragStore.getState().start(source, shift);
       }}
       onDragMove={({ operation }) => {
         const { target } = operation;
-        if (!target) return useDragStore.getState().over(null, Zone.Onto);
-        if (target.data.terminal) return useDragStore.getState().overTerminal();
+        if (!target) return useDragStore.getState().over(null, null, Zone.Onto);
+
         const rect = target.shape?.boundingRectangle;
         if (!rect) return;
+
         useDragStore
           .getState()
-          .over(target.data.change, zoneAt(operation.position.current.y, rect.top, rect.height));
+          .over(String(target.id), effectOf(target), zoneAt(operation.position.current.y, rect.top, rect.height));
       }}
       onDragEnd={({ canceled }) => {
         const { drop, end } = useDragStore.getState();

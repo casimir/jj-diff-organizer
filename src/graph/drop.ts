@@ -80,3 +80,53 @@ export function shellQuote(arg: string): string {
 export function displayCommand(args: string[]): string {
   return ["jj", ...args.map(shellQuote)].join(" ");
 }
+
+export type DropAction = { kind: "jj"; args: string[] } | { kind: "insert"; text: string };
+
+export interface DropContext {
+  zone: Zone;
+  shift: boolean;
+}
+
+/** What dropping `source` does on a target; `null` when this drop makes no sense. */
+export type DropEffect = (source: DragSource, context: DropContext) => DropAction | null;
+
+const TERMINAL_KINDS = ["bookmark", "change", "file"] as const;
+type TerminalSource = Extract<DragSource, { kind: (typeof TERMINAL_KINDS)[number] }>;
+
+export const TERMINAL_ACCEPTS = [...TERMINAL_KINDS];
+
+const terminalKinds: readonly string[] = TERMINAL_KINDS;
+
+function isTerminalSource(source: DragSource): source is TerminalSource {
+  return terminalKinds.includes(source.kind);
+}
+
+function terminalText(source: TerminalSource): string {
+  switch (source.kind) {
+    case "bookmark":
+      return shellQuote(source.name);
+    case "change":
+      return source.change.short;
+    case "file":
+      return shellQuote(source.path);
+  }
+}
+
+export const dragProps = (source: DragSource) => ({ type: source.kind, data: { source } });
+
+export const dropProps = (effect: DropEffect, accept?: DragSource["kind"][]) => ({ accept, data: { effect } });
+
+export const changeEffect =
+  (target: Change): DropEffect =>
+  (source, { zone, shift }) => {
+    const args = dropArgs(source, target, zone, shift);
+    return args && { kind: "jj", args };
+  };
+
+export const terminalEffect: DropEffect = (source) =>
+  isTerminalSource(source) ? { kind: "insert", text: terminalText(source) } : null;
+
+export function describeAction(action: DropAction): string {
+  return action.kind === "jj" ? displayCommand(action.args) : action.text;
+}

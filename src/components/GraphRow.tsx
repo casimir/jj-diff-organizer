@@ -1,8 +1,8 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/react";
 
 import { DragLabel } from "@/components/DragLabel";
-import { Zone, type DragSource } from "@/graph/drop";
+import { changeEffect, dragProps, dropProps, Zone, type DragSource } from "@/graph/drop";
 import type { Row } from "@/graph/layout";
 import { selectCommand, useDragStore } from "@/store/drag";
 
@@ -34,14 +34,17 @@ export const GraphRow = memo(function GraphRow({
     id: `change:${change.commit_id}`,
     element: ref,
     disabled: change.immutable,
-    data: { source },
+    ...dragProps(source),
   });
-  useDroppable({ id: `row:${change.commit_id}`, element: ref, data: { change } });
+  const rowId = `row:${change.commit_id}`;
+  const effect = useMemo(() => changeEffect(change), [change]);
+  useDroppable({ id: rowId, element: ref, ...dropProps(effect) });
   useEffect(() => {
     if (selected) ref.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
   const indicator = useDragStore((s) => {
-    if (s.target?.commit_id !== change.commit_id || !selectCommand(s)) return null;
+    if (s.targetId !== rowId || !selectCommand(s)) return null;
+
     return s.source?.kind === "change" ? s.zone : Zone.Onto;
   });
 

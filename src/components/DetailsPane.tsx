@@ -7,6 +7,7 @@ import { Handle } from "@/components/Handle";
 import { ReviewDot } from "@/components/ReviewDot";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { StatusBar } from "@/components/ui/StatusBar";
+import { dragProps, type DragSource } from "@/graph/drop";
 import { fileState } from "@/review/hunks";
 import { SelectMode, selectIsWorkingCopy, selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, type FileView } from "@/types";
@@ -29,18 +30,17 @@ function FileRow({ file, selected, reviewable }: {
   const state = useGraphStore((s) => fileState(file, s.marks));
   const change = useGraphStore(selectSelectedChange);
   const ref = useRef<HTMLDivElement>(null);
+  const source: DragSource | undefined = change && {
+    kind: "file",
+    from: change,
+    path: file.path,
+    renamedFrom: file.status === FileStatus.Renamed ? file.old_path : null,
+  };
   const { isDragSource } = useDraggable({
     id: `file:${file.path}`,
     element: ref,
     disabled: !change || change.immutable,
-    data: {
-      source: {
-        kind: "file",
-        from: change,
-        path: file.path,
-        renamedFrom: file.status === FileStatus.Renamed ? file.old_path : null,
-      },
-    },
+    ...(source && dragProps(source)),
   });
   const name = file.path.split("/").pop();
   const { letter, className } = STATUS[file.status];

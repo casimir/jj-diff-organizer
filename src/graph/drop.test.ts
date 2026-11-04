@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { displayCommand, dropArgs, HUNK_TOOL, Zone, zoneAt, type DragSource } from "@/graph/drop";
+import { displayCommand, dropArgs, HUNK_TOOL, terminalEffect, Zone, zoneAt, type DragSource } from "@/graph/drop";
 import type { Change } from "@/types";
 
 function change(id: string, overrides: Partial<Change> = {}): Change {
@@ -100,6 +100,27 @@ describe("dropArgs for review items", () => {
     expect(dropArgs(file, x, Zone.Onto, false)).toBeNull();
     expect(dropArgs(file, change("m", { immutable: true }), Zone.Onto, false)).toBeNull();
     expect(dropArgs({ ...hunk, from: change("m", { immutable: true }) }, y, Zone.Onto, false)).toBeNull();
+  });
+});
+
+describe("terminalEffect", () => {
+  const ctx = { zone: Zone.Onto, shift: false };
+  const insert = (source: DragSource) => terminalEffect(source, ctx);
+  const file = (path: string): DragSource => ({ kind: "file", from: x, path, renamedFrom: null });
+
+  it("inserts paths, quoting only when needed", () => {
+    expect(insert(file("src/a.ts"))).toEqual({ kind: "insert", text: "src/a.ts" });
+    expect(insert(file("my docs/it's.md"))).toEqual({ kind: "insert", text: "'my docs/it'\\''s.md'" });
+  });
+
+  it("inserts a change id and a bookmark name", () => {
+    expect(insert(dragX)).toEqual({ kind: "insert", text: "x" });
+    expect(insert({ kind: "bookmark", name: "feature/x" })).toEqual({ kind: "insert", text: "feature/x" });
+    expect(insert({ kind: "bookmark", name: "a*b" })).toEqual({ kind: "insert", text: "'a*b'" });
+  });
+
+  it("ignores sources it does not accept", () => {
+    expect(insert({ kind: "wc", change: x })).toBeNull();
   });
 });
 
