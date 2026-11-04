@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+
+use crate::shell_path::jj_command;
 
 #[derive(Debug, Clone)]
 pub struct Repo {
@@ -15,7 +16,7 @@ const MIN_JJ_VERSION: (u32, u32) = (0, 46);
 impl Repo {
     pub fn discover(start: &Path) -> Result<Self, String> {
         check_jj_version()?;
-        let out = Command::new("jj")
+        let out = jj_command()
             .args(["--no-pager", "--ignore-working-copy", "root"])
             .current_dir(start)
             .output()
@@ -47,7 +48,7 @@ impl Repo {
 }
 
 fn check_jj_version() -> Result<(), String> {
-    let out = Command::new("jj")
+    let out = jj_command()
         .arg("--version")
         .output()
         .map_err(|e| format!("cannot run jj: {e}"))?;

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::diff::{FilePair, parse_git_diff};
 use crate::hunk::EDITOR_COMMAND;
 use crate::repo::Repo;
+use crate::shell_path::jj_command;
 
 /// Name of the diff editor that `hunk_tool_config` defines for a single run.
 pub const HUNK_TOOL: &str = "jjdo-hunk";
@@ -261,7 +262,7 @@ impl Jj {
     }
 
     fn command(&self, flags: &[&str]) -> Command {
-        let mut cmd = Command::new("jj");
+        let mut cmd = jj_command();
         cmd.args(flags).current_dir(&self.repo.root);
         cmd
     }
