@@ -112,11 +112,11 @@ impl WorkspaceWatch {
         let watched = root.clone();
         let debouncer = watch(
             WORKSPACE_DEBOUNCE,
-            move |res: Result<Vec<DebouncedEvent>, _>| {
-                if let Ok(events) = res {
-                    if events.iter().any(|e| !is_ignored(&watched, &e.path)) {
-                        on_change();
-                    }
+            &root,
+            RecursiveMode::Recursive,
+            move |events| {
+                if events.iter().any(|e| !is_ignored(&watched, &e.path)) {
+                    on_change();
                 }
             },
         )?;
@@ -154,6 +154,27 @@ impl ReviewWatch {
             _debouncer: debouncer,
         })
     }
+}
+
+fn watch(
+    timeout: Duration,
+    path: &Path,
+    mode: RecursiveMode,
+    on_events: impl Fn(Vec<DebouncedEvent>) + Send + 'static,
+) -> Result<Debouncer<notify::RecommendedWatcher>, String> {
+    let mut debouncer = new_debouncer(
+        timeout,
+        move |res: Result<Vec<DebouncedEvent>, _>| match res {
+            Ok(events) => on_events(events),
+            Err(e) => eprintln!("watch: {e}"),
+        },
+    )
+    .map_err(|e| e.to_string())?;
+    debouncer
+        .watcher()
+        .watch(path, mode)
+        .map_err(|e| e.to_string())?;
+    Ok(debouncer)
 }
 
 fn is_ignored(root: &Path, path: &Path) -> bool {

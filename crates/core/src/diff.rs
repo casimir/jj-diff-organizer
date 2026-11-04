@@ -1,7 +1,7 @@
-use jj_diff::{DiffSpanStyle, compute_file_diff};
+use jj_diff::{DiffSpanStyle, SyntaxToken, compute_file_diff};
 use serde::Serialize;
 
-use crate::hunk::hunk_digests;
+use crate::hunk::{hunk_digests, hunk_groups};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -35,20 +35,29 @@ pub struct FileView {
     pub lines: Vec<LineView>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LineKind {
+    Context,
+    Added,
+    Removed,
+    Separator,
+}
+
 #[derive(Debug, Serialize)]
 pub struct LineView {
     pub old: Option<u32>,
     pub new: Option<u32>,
-    pub kind: &'static str,
+    pub kind: LineKind,
     /// Index into `FileView::digests`, for the lines of a hunk.
-    pub group: Option<u32>,
+    pub group: Option<usize>,
     pub spans: Vec<SpanView>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct SpanView {
     pub text: String,
-    pub token: String,
+    pub token: &'static str,
 }
 
 /// Parses `jj diff --git --context <huge>` output: one hunk per file holding both sides.
@@ -149,6 +158,22 @@ fn parse_section(section: &[u8]) -> FilePair {
     pair
 }
 
+fn token_name(token: SyntaxToken) -> &'static str {
+    match token {
+        SyntaxToken::Plain => "plain",
+        SyntaxToken::Keyword => "keyword",
+        SyntaxToken::StringLit => "stringlit",
+        SyntaxToken::Comment => "comment",
+        SyntaxToken::Number => "number",
+        SyntaxToken::Type => "type",
+        SyntaxToken::Function => "function",
+        SyntaxToken::Variable => "variable",
+        SyntaxToken::Operator => "operator",
+        SyntaxToken::Punctuation => "punctuation",
+        SyntaxToken::Attribute => "attribute",
+    }
+}
+
 pub fn file_view(pair: FilePair) -> FileView {
     if pair.binary {
         return FileView {
@@ -162,37 +187,29 @@ pub fn file_view(pair: FilePair) -> FileView {
     }
 
     let diff = compute_file_diff(&pair.path, &pair.old_content, &pair.content, false);
-    let mut next_group = 0;
-    let mut group = None;
+    let groups = hunk_groups(diff.lines.iter().map(|l| l.is_changed()));
     let lines = diff
         .lines
         .iter()
-        .map(|line| {
-            if !line.is_changed() {
-                group = None;
-            } else if group.is_none() {
-                group = Some(next_group);
-                next_group += 1;
-            }
-            LineView {
-                old: line.old_line_no,
-                new: line.new_line_no,
-                kind: match line.style {
-                    DiffSpanStyle::Added => "added",
-                    DiffSpanStyle::Removed => "removed",
-                    DiffSpanStyle::Separator => "separator",
-                    DiffSpanStyle::Context | DiffSpanStyle::Unchanged => "context",
-                },
-                group: if line.is_changed() { group } else { None },
-                spans: line
-                    .spans
-                    .iter()
-                    .map(|s| SpanView {
-                        text: s.text.clone(),
-                        token: format!("{:?}", s.token).to_lowercase(),
-                    })
-                    .collect(),
-            }
+        .zip(groups)
+        .map(|(line, group)| LineView {
+            old: line.old_line_no,
+            new: line.new_line_no,
+            kind: match line.style {
+                DiffSpanStyle::Added => LineKind::Added,
+                DiffSpanStyle::Removed => LineKind::Removed,
+                DiffSpanStyle::Separator => LineKind::Separator,
+                DiffSpanStyle::Context | DiffSpanStyle::Unchanged => LineKind::Context,
+            },
+            group,
+            spans: line
+                .spans
+                .iter()
+                .map(|s| SpanView {
+                    text: s.text.clone(),
+                    token: token_name(s.token),
+                })
+                .collect(),
         })
         .collect();
 
@@ -240,7 +257,7 @@ mod tests {
 
         let view = file_view(pair);
 
-        let mut groups: Vec<u32> = view.lines.iter().filter_map(|l| l.group).collect();
+        let mut groups: Vec<usize> = view.lines.iter().filter_map(|l| l.group).collect();
         groups.dedup();
         assert_eq!(groups, [0, 1, 2]);
         assert_eq!(view.digests.len(), 3);

@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::diff::{FilePair, parse_git_diff};
@@ -66,7 +67,7 @@ struct OpLine {
 
 const OP_TEMPLATE: &str = r#""{\"op\":" ++ json(self) ++ ",\"start_ms\":\"" ++ self.time().start().format("%s%3f") ++ "\"}\n""#;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct OpAttributes {
     #[serde(default)]
     pub args: String,
@@ -125,8 +126,8 @@ impl Jj {
         &self.repo
     }
 
-    /// Runs a mutating (or any) command and records everything about it. `config` holds
-    /// `--config` arguments that jj gets but the recorded command leaves out.
+    /// Runs jj and records the result. `config` holds `--config` arguments that jj gets
+    /// but the recorded command leaves out.
     pub fn run(&self, id: u64, args: &[String], config: &[String]) -> Run {
         let started = now_ms();
         let out = self
@@ -135,7 +136,7 @@ impl Jj {
             .args(config)
             .args(args)
             .output();
-        let (stdout, stderr, exit_code) = match out {
+        let (stdout, mut stderr, exit_code) = match out {
             Ok(o) => (
                 String::from_utf8_lossy(&o.stdout).into_owned(),
                 String::from_utf8_lossy(&o.stderr).into_owned(),
@@ -143,6 +144,10 @@ impl Jj {
             ),
             Err(e) => (String::new(), format!("cannot run jj: {e}"), None),
         };
+        let op_after = self.repo.op_heads().unwrap_or_else(|e| {
+            stderr.push_str(&format!("cannot read operation heads: {e}\n"));
+            Vec::new()
+        });
         Run {
             id,
             command: display_command(args),
@@ -150,7 +155,7 @@ impl Jj {
             stderr,
             exit_code,
             started,
-            op_after: self.repo.op_heads(),
+            op_after,
         }
     }
 
@@ -168,12 +173,7 @@ impl Jj {
             &["log", "--revision", revset, "--template", CHANGE_TEMPLATE],
         )?;
         // Graph mode orders changes by branch like the CLI; drop the glyph columns.
-        let json: String = out
-            .lines()
-            .filter_map(|l| l.find('{').map(|i| &l[i..]))
-            .map(|l| format!("{l}\n"))
-            .collect();
-        parse_lines(&json)
+        parse_lines(out.lines().filter_map(|l| l.find('{').map(|i| &l[i..])))
     }
 
     pub fn mutable_change_ids(&self) -> Result<BTreeSet<String>, String> {
@@ -205,7 +205,7 @@ impl Jj {
                 OP_TEMPLATE,
             ],
         )?;
-        parse_lines::<OpLine>(&out)?
+        parse_lines::<OpLine>(out.lines())?
             .into_iter()
             .map(|l| {
                 let start_ms = l
@@ -257,8 +257,11 @@ impl Jj {
     }
 }
 
-fn parse_lines<T: for<'de> Deserialize<'de>>(out: &str) -> Result<Vec<T>, String> {
-    out.lines()
+fn parse_lines<'a, T: DeserializeOwned>(
+    lines: impl IntoIterator<Item = &'a str>,
+) -> Result<Vec<T>, String> {
+    lines
+        .into_iter()
         .map(|l| serde_json::from_str(l).map_err(|e| format!("bad jj output: {e}: {l}")))
         .collect()
 }
@@ -281,10 +284,10 @@ pub fn hunk_tool_config(exe: &Path, path: &str, digest: &str) -> Vec<String> {
 }
 
 pub fn now_ms() -> u64 {
-    SystemTime::now()
+    let since_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("the clock is after 1970")
-        .as_millis() as u64
+        .expect("the clock is after 1970");
+    u64::try_from(since_epoch.as_millis()).expect("the clock is within u64 milliseconds")
 }
 
 pub fn display_command(args: &[String]) -> String {

@@ -30,6 +30,20 @@ struct App {
     _review_watch: ReviewWatch,
 }
 
+impl App {
+    fn next_run_id(&self) -> u64 {
+        self.next_run.fetch_add(1, Ordering::SeqCst)
+    }
+
+    fn record_if_failed(&self, run: &Run) -> bool {
+        let failed = run.failed();
+        if failed {
+            self.history.lock().unwrap().push(Failure::from(run));
+        }
+        failed
+    }
+}
+
 #[derive(Deserialize)]
 struct HunkRef {
     path: String,
@@ -118,11 +132,9 @@ async fn run_jj(
         None => Vec::new(),
     };
     let jj = app.jj.clone();
-    let id = app.next_run.fetch_add(1, Ordering::SeqCst);
+    let id = app.next_run_id();
     let run = blocking(move || jj.run(id, &args, &config)).await?;
-    if run.failed() {
-        app.history.lock().unwrap().push(Failure::from(&run));
-    }
+    app.record_if_failed(&run);
     notify_changed(&handle, run.op_after.clone());
     Ok(run)
 }
@@ -172,18 +184,21 @@ fn pty_resize(app: State<'_, App>, cols: u16, rows: u16) -> Result<(), String> {
     }
 }
 
-fn notify_changed(handle: &AppHandle, heads: Vec<String>) {
-    if let Err(e) = handle.emit("repo-changed", heads) {
-        eprintln!("cannot emit repo-changed: {e}");
+fn emit(handle: &AppHandle, event: &str, payload: Vec<String>) {
+    if let Err(e) = handle.emit(event, payload) {
+        eprintln!("cannot emit {event}: {e}");
     }
+}
+
+fn notify_changed(handle: &AppHandle, heads: Vec<String>) {
+    emit(handle, "repo-changed", heads);
 }
 
 /// Failures of background work have no other place to show up than the history.
 fn record_failure(handle: &AppHandle, command: &str, message: String) {
     let state = handle.state::<App>();
-    let id = state.next_run.fetch_add(1, Ordering::SeqCst);
     state.history.lock().unwrap().push(Failure {
-        id,
+        id: state.next_run_id(),
         started: now_ms(),
         command: command.into(),
         output: message,
@@ -195,10 +210,12 @@ fn snapshot(handle: AppHandle) {
     std::thread::spawn(move || {
         let state = handle.state::<App>();
         let _one_at_a_time = state.snapshotting.lock().unwrap();
-        let id = state.next_run.fetch_add(1, Ordering::SeqCst);
-        let run = state.jj.run(id, &["util".into(), "snapshot".into()], &[]);
-        if run.failed() {
-            state.history.lock().unwrap().push(Failure::from(&run));
+        let run = state.jj.run(
+            state.next_run_id(),
+            &["util".into(), "snapshot".into()],
+            &[],
+        );
+        if state.record_if_failed(&run) {
             notify_changed(&handle, Vec::new());
         }
     });
@@ -256,9 +273,7 @@ fn run_app() {
             store.prune(&jj.mutable_change_ids()?)?;
             let on_review = app.handle().clone();
             let review_watch = ReviewWatch::start(store.dir(), move |ids| {
-                if let Err(e) = on_review.emit("review-changed", ids) {
-                    eprintln!("cannot emit review-changed: {e}");
-                }
+                emit(&on_review, "review-changed", ids);
             })?;
             app.manage(App {
                 jj,

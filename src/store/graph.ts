@@ -43,6 +43,9 @@ let latestRefresh = 0;
 let latestDetails = 0;
 let latestMarks = 0;
 
+const firstHunk = (file: FileView | undefined): HunkPos | null =>
+  file && file.digests.length > 0 ? { path: file.path, group: 0 } : null;
+
 export const selectSelectedChange = (s: Pick<GraphState, "changes" | "selectedId">) =>
   s.changes.find((c) => c.change_id === s.selectedId);
 

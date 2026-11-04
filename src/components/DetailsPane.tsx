@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type MouseEvent } from "react";
 import { useDraggable } from "@dnd-kit/react";
 import { Group, Panel } from "react-resizable-panels";
 
@@ -17,6 +17,9 @@ const STATUS: Record<FileStatus, { letter: string; className: string }> = {
   [FileStatus.Deleted]: { letter: "D", className: "text-danger" },
   [FileStatus.Renamed]: { letter: "R", className: "text-special" },
 };
+
+const selectMode = (e: MouseEvent): SelectMode =>
+  e.shiftKey ? SelectMode.Range : e.metaKey || e.ctrlKey ? SelectMode.Toggle : SelectMode.Replace;
 
 function FileRow({ file, selected, reviewable }: {
   file: FileView;
@@ -44,11 +47,7 @@ function FileRow({ file, selected, reviewable }: {
   return (
     <div
       ref={ref}
-      onClick={(e) =>
-        useGraphStore
-          .getState()
-          .selectFile(file.path, e.shiftKey ? SelectMode.Range : e.metaKey || e.ctrlKey ? SelectMode.Toggle : SelectMode.Replace)
-      }
+      onClick={(e) => useGraphStore.getState().selectFile(file.path, selectMode(e))}
       className={`flex items-center gap-2 px-2 py-1 ${selected ? "bg-selected" : "hover:bg-subtle"} ${
         isDragSource ? "dragging" : ""
       }`}

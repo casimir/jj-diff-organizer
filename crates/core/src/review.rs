@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Display;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 pub type FileMarks = BTreeMap<String, BTreeSet<String>>;
@@ -89,8 +90,8 @@ impl Store {
         }
         let text = serde_json::to_string_pretty(marks).map_err(at(&path))?;
         let tmp = self.dir.join(format!(".{change_id}.json.tmp"));
-        fs::write(&tmp, text).map_err(fail)?;
-        fs::rename(&tmp, &path).map_err(fail)
+        fs::write(&tmp, text).map_err(at(&tmp))?;
+        fs::rename(&tmp, &path).map_err(at(&path))
     }
 }
 
