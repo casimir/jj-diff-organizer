@@ -5,6 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use ignore::Match;
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use notify::RecursiveMode;
 use notify_debouncer_mini::{DebouncedEvent, Debouncer, new_debouncer};
 
@@ -112,7 +114,7 @@ impl WorkspaceWatch {
             WORKSPACE_DEBOUNCE,
             move |res: Result<Vec<DebouncedEvent>, _>| {
                 if let Ok(events) = res {
-                    if events.iter().any(|e| !is_vcs_internal(&watched, &e.path)) {
+                    if events.iter().any(|e| !is_ignored(&watched, &e.path)) {
                         on_change();
                     }
                 }
@@ -154,9 +156,64 @@ impl ReviewWatch {
     }
 }
 
-fn is_vcs_internal(root: &Path, path: &Path) -> bool {
-    path.strip_prefix(root)
-        .ok()
-        .and_then(|rel| rel.components().next())
-        .is_some_and(|c| c.as_os_str() == ".jj" || c.as_os_str() == ".git")
+fn is_ignored(root: &Path, path: &Path) -> bool {
+    let Ok(rel) = path.strip_prefix(root) else {
+        return false;
+    };
+    let mut vcs_dirs = GitignoreBuilder::new(root);
+    for pattern in ["/.jj", "/.git"] {
+        vcs_dirs.add_line(None, pattern).expect("valid pattern");
+    }
+    let mut matchers = vec![
+        vcs_dirs.build().expect("valid patterns"),
+        Gitignore::new(root.join(".gitignore")).0,
+    ];
+    let mut current = root.to_path_buf();
+    let mut components = rel.components().peekable();
+    while let Some(component) = components.next() {
+        current.push(component);
+        let is_dir = components.peek().is_some() || current.is_dir();
+        let mut ignored = false;
+        for gitignore in &matchers {
+            match gitignore.matched(&current, is_dir) {
+                Match::Ignore(_) => ignored = true,
+                Match::Whitelist(_) => ignored = false,
+                Match::None => {}
+            }
+        }
+        if ignored {
+            return true;
+        }
+        if is_dir {
+            matchers.push(Gitignore::new(current.join(".gitignore")).0);
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn nested_gitignore_files_override_their_ancestors() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        fs::create_dir_all(root.join("target/debug")).unwrap();
+        fs::create_dir_all(root.join("sub")).unwrap();
+        fs::write(root.join(".gitignore"), "target\n*.log\n").unwrap();
+        fs::write(root.join("sub/.gitignore"), "!keep.log\n").unwrap();
+
+        assert!(is_ignored(root, &root.join("target/debug/out.o")));
+        assert!(is_ignored(root, &root.join("a.log")));
+        assert!(is_ignored(root, &root.join(".git/index")));
+        assert!(is_ignored(root, &root.join(".jj/repo/op_heads")));
+        assert!(!is_ignored(root, &root.join("src.rs")));
+        assert!(!is_ignored(root, &root.join("sub/keep.log")));
+        assert!(is_ignored(root, &root.join("sub/other.log")));
+
+        fs::write(root.join("target/.gitignore"), "!debug\n").unwrap();
+        assert!(is_ignored(root, &root.join("target/debug/out.o")));
+    }
 }
