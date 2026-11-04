@@ -42,7 +42,7 @@ function Line({ line }: { line: DiffLine }) {
       <span className="w-10 shrink-0 pr-1 text-right text-muted select-none">{line.old}</span>
       <span className="w-10 shrink-0 pr-1 text-right text-muted select-none">{line.new}</span>
       <span className="w-4 shrink-0 text-muted select-none">{SIGN[line.kind]}</span>
-      <span className="whitespace-pre">
+      <span className="min-w-0 whitespace-pre-wrap break-all">
         {line.spans.map((s, i) => (
           <span key={i} className={TOKEN_CLASS[s.token]}>
             {s.text}
@@ -129,7 +129,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
     [file],
   );
   return (
-    <section className="w-max min-w-full">
+    <section>
       <div className="sticky top-0 z-10 flex h-(--diff-header-h) items-center border-b border-line bg-canvas px-2 font-sans">
         <FileTitle file={file} />
       </div>
