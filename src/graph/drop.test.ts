@@ -8,6 +8,8 @@ import {
   HUNK_TOOL,
   isDestructive,
   terminalEffect,
+  trashArgs,
+  trashEffect,
   Zone,
   zoneAt,
   type DragSource,
@@ -115,6 +117,53 @@ describe("dropArgs for review items", () => {
   });
 });
 
+describe("trashArgs", () => {
+  const file: DragSource = { kind: "file", from: x, path: "src/a.ts", renamedFrom: null };
+  const hunk: DragSource = { kind: "hunk", from: x, path: "src/a.ts", digest: "d1" };
+
+  it("abandons a change, keeping its descendants' content with shift", () => {
+    expect(trashArgs(dragX, false)).toEqual(["abandon", "x"]);
+    expect(trashArgs(dragX, true)).toEqual(["abandon", "x", "--restore-descendants"]);
+  });
+
+  it("deletes a bookmark everywhere, or forgets it locally with shift", () => {
+    const bookmark: DragSource = { kind: "bookmark", name: "main" };
+    expect(trashArgs(bookmark, false)).toEqual(["bookmark", "delete", "main"]);
+    expect(trashArgs(bookmark, true)).toEqual(["bookmark", "forget", "main"]);
+  });
+
+  it("restores a file, both names when renamed", () => {
+    expect(trashArgs(file, false)).toEqual(["restore", "--changes-in", "x", "src/a.ts"]);
+    expect(trashArgs({ ...file, path: "src/b.ts", renamedFrom: "src/a.ts" }, true)).toEqual([
+      "restore", "--changes-in", "x", "--restore-descendants", "src/a.ts", "src/b.ts",
+    ]);
+  });
+
+  it("reverts a hunk through the diff editor", () => {
+    expect(trashArgs(hunk, true)).toEqual([
+      "diffedit", "-r", "x", "--tool", HUNK_TOOL, "--restore-descendants", "src/a.ts",
+    ]);
+  });
+
+  it("refuses the working copy label and immutable changes", () => {
+    const immutable = change("m", { immutable: true });
+    expect(trashArgs({ kind: "wc", change: x }, false)).toBeNull();
+    expect(trashArgs({ kind: "change", change: immutable }, false)).toBeNull();
+    expect(trashArgs({ ...file, from: immutable }, false)).toBeNull();
+    expect(trashArgs({ ...hunk, from: immutable }, false)).toBeNull();
+  });
+});
+
+describe("hunk operation of an effect", () => {
+  const hunk: DragSource = { kind: "hunk", from: x, path: "src/a.ts", digest: "d1" };
+  const ctx = { zone: Zone.Onto, shift: false };
+
+  it("keeps the hunk when squashing it and reverts it when trashing it", () => {
+    expect(changeEffect(y)(hunk, ctx)).toMatchObject({ hunk: { op: "keep", path: "src/a.ts", digest: "d1" } });
+    expect(trashEffect(hunk, ctx)).toMatchObject({ hunk: { op: "revert", path: "src/a.ts", digest: "d1" } });
+  });
+});
+
 describe("dropActions", () => {
   it("lists what a target does with the source, whatever the zone or shift state", () => {
     expect(dropActions(changeEffect(y), dragX)).not.toHaveLength(0);
@@ -126,7 +175,8 @@ describe("dropActions", () => {
     expect(dropActions(terminalEffect, { kind: "hunk", from: x, path: "a", digest: "d" })).toEqual([]);
   });
 
-  it("flags no move as destructive", () => {
+  it("flags only the trash as destructive", () => {
+    expect(dropActions(trashEffect, dragX).every(isDestructive)).toBe(true);
     expect(dropActions(changeEffect(y), dragX).some(isDestructive)).toBe(false);
   });
 });

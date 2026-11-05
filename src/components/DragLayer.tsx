@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 
+import { DRAG_LABEL } from "@/graph/collision";
 import { isDestructive, PreviewState, Zone, zoneAt, type DragSource, type DropEffect } from "@/graph/drop";
 import { selectAction, selectCommand, useDragStore } from "@/store/drag";
 
@@ -74,6 +75,7 @@ function DragPreview() {
   return (
     <div ref={box} style={{ translate: `${grab.x}px ${grab.y}px` }}>
       <div
+        {...{ [DRAG_LABEL]: "" }}
         data-preview={command === null ? PreviewState.Object : PreviewState.Command}
         data-destructive={destructive || undefined}
         className="w-max rounded bg-canvas px-2 py-1 whitespace-nowrap shadow ring-1 ring-(color:--preview-ring)"

@@ -1,6 +1,7 @@
 import { useMemo, type RefObject } from "react";
 import { useDroppable } from "@dnd-kit/react";
 
+import { labelIntersection } from "@/graph/collision";
 import { dropActions, dropProps, DropState, isDestructive, type DropEffect } from "@/graph/drop";
 import { selectAction, useDragStore } from "@/store/drag";
 
@@ -10,7 +11,7 @@ export function useDropTarget(
   element: RefObject<HTMLElement | null>,
   effect: DropEffect,
 ): { active: boolean; state: DropState | undefined; destructive: boolean } {
-  useDroppable({ id, element, ...dropProps(effect) });
+  useDroppable({ id, element, collisionDetector: labelIntersection, ...dropProps(effect) });
   const active = useDragStore((s) => s.targetId === id && selectAction(s) !== null);
   const source = useDragStore((s) => s.source);
   const actions = useMemo(() => (source ? dropActions(effect, source) : []), [effect, source]);

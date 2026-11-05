@@ -4,6 +4,7 @@ import { Group, Panel } from "react-resizable-panels";
 import { DiffView } from "@/components/DiffView";
 import { Handle } from "@/components/Handle";
 import { ReviewDot } from "@/components/ReviewDot";
+import { TrashZone } from "@/components/TrashZone";
 import { ErrorText } from "@/components/ui/ErrorText";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { ListRow } from "@/components/ui/ListRow";
@@ -66,13 +67,22 @@ function FileRow({ file, selected, reviewable }: {
 
 export function DetailsPane() {
   const selectedId = useGraphStore((s) => s.selectedId);
+
+  return (
+    <div className="relative h-full">
+      {selectedId ? <Details /> : <div className="p-2 text-muted">Select a change in the graph.</div>}
+      <TrashZone />
+    </div>
+  );
+}
+
+function Details() {
   const files = useGraphStore((s) => s.files);
   const selectedPaths = useGraphStore((s) => s.selectedPaths);
   const detailsError = useGraphStore((s) => s.detailsError);
   const reviewable = useGraphStore(selectIsWorkingCopy);
   const shown = files.filter((f) => selectedPaths.includes(f.path));
 
-  if (!selectedId) return <div className="p-2 text-muted">Select a change in the graph.</div>;
   return (
     <div className="flex h-full flex-col">
       {detailsError && <ErrorText>{detailsError}</ErrorText>}

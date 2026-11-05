@@ -5,7 +5,6 @@ import { describeAction, Zone, type DragSource, type DropAction, type DropEffect
 import { useGraphStore } from "@/store/graph";
 import { useHistoryStore } from "@/store/history";
 import { useUiStore } from "@/store/ui";
-import { HunkOp } from "@/types";
 
 /** Where the pointer grabbed the source, relative to its top-left corner. */
 interface Grab {
@@ -59,8 +58,7 @@ export const useDragStore = create<DragState>((set, get) => ({
     if (a.kind === "insert") return useUiStore.getState().insertIntoTerminal(`${a.text} `);
 
     try {
-      const source = get().source;
-      const run = await api.runJj(a.args, source?.kind === "hunk" ? { op: HunkOp.Keep, path: source.path, digest: source.digest } : undefined);
+      const run = await api.runJj(a.args, a.hunk);
       if (run.exit_code !== 0) useHistoryStore.getState().select(`failure-${run.id}`);
     } catch (e) {
       useGraphStore.setState({ error: api.errorMessage(e) });

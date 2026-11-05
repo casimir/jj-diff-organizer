@@ -35,9 +35,11 @@
   --drop-color: var(--color-accent);
   --indicator-width: 2px;
   --opacity-inactive: 40%;
+  --trash-size: calc(var(--spacing-target) * 3);
   --z-dialog: 60;
   --z-overlay: 50;
   --z-sticky: 10;
+  --z-trash: 20;
 }
 
 [data-cursor] {

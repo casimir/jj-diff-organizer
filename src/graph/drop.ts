@@ -1,4 +1,4 @@
-import type { Change } from "@/types";
+import { HunkOp, type Change, type HunkRef } from "@/types";
 
 export const Zone = {
   Onto: "onto",
@@ -27,12 +27,10 @@ export function zoneAt(y: number, top: number, height: number): Zone {
 
 const SAFE_PATH = /^[A-Za-z0-9_./-]+$/;
 
-/** A repo-relative path as a jj fileset argument. */
 function filesetPath(path: string): string {
   return SAFE_PATH.test(path) ? path : `root-file:"${path.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
-/** `null` when dropping `source` on `target` makes no sense. */
 export function dropArgs(
   source: DragSource,
   target: Change,
@@ -56,16 +54,48 @@ export function dropArgs(
     case "wc":
       if (source.change.change_id === target.change_id) return null;
       return ["edit", target.short];
-    case "file":
-    case "hunk": {
+    case "file": {
       if (source.from.change_id === target.change_id || source.from.immutable || target.immutable) return null;
-      const tool = source.kind === "hunk" ? ["--tool", HUNK_TOOL] : [];
-      const paths = source.kind === "file" && source.renamedFrom ? [source.renamedFrom, source.path] : [source.path];
+
+      const paths = source.renamedFrom ? [source.renamedFrom, source.path] : [source.path];
       return [
         "squash", "--from", source.from.short, "--into", target.short, "--use-destination-message",
-        ...tool, ...paths.map(filesetPath),
+        ...paths.map(filesetPath),
       ];
     }
+    case "hunk":
+      if (source.from.change_id === target.change_id || source.from.immutable || target.immutable) return null;
+
+      return [
+        "squash", "--from", source.from.short, "--into", target.short, "--use-destination-message",
+        "--tool", HUNK_TOOL, filesetPath(source.path),
+      ];
+  }
+}
+
+const RESTORE_DESCENDANTS = "--restore-descendants";
+
+export function trashArgs(source: DragSource, shift: boolean): string[] | null {
+  const keepDescendants = shift ? [RESTORE_DESCENDANTS] : [];
+  switch (source.kind) {
+    case "change":
+      if (source.change.immutable) return null;
+
+      return ["abandon", source.change.short, ...keepDescendants];
+    case "bookmark":
+      return ["bookmark", shift ? "forget" : "delete", source.name];
+    case "wc":
+      return null;
+    case "file": {
+      if (source.from.immutable) return null;
+
+      const paths = source.renamedFrom ? [source.renamedFrom, source.path] : [source.path];
+      return ["restore", "--changes-in", source.from.short, ...keepDescendants, ...paths.map(filesetPath)];
+    }
+    case "hunk":
+      if (source.from.immutable) return null;
+
+      return ["diffedit", "-r", source.from.short, "--tool", HUNK_TOOL, ...keepDescendants, filesetPath(source.path)];
   }
 }
 
@@ -80,7 +110,7 @@ export function displayCommand(args: string[]): string {
 }
 
 export type DropAction =
-  | { kind: "jj"; args: string[]; destructive: boolean }
+  | { kind: "jj"; args: string[]; hunk?: HunkRef; destructive: boolean }
   | { kind: "insert"; text: string };
 
 export interface DropContext {
@@ -114,14 +144,24 @@ export const dragProps = (source: DragSource) => ({ type: source.kind, data: { s
 
 export const dropProps = (effect: DropEffect) => ({ data: { effect } });
 
+const hunkRef = (source: DragSource, op: HunkOp): HunkRef | undefined =>
+  source.kind === "hunk" ? { op, path: source.path, digest: source.digest } : undefined;
+
 export const changeEffect =
   (target: Change): DropEffect =>
-  (source, { zone, shift }) => {
-    const args = dropArgs(source, target, zone, shift);
-    if (!args) return null;
+    (source, { zone, shift }) => {
+      const args = dropArgs(source, target, zone, shift);
+      if (!args) return null;
 
-    return { kind: "jj", args, destructive: false };
-  };
+      return { kind: "jj", args, hunk: hunkRef(source, HunkOp.Keep), destructive: false };
+    };
+
+export const trashEffect: DropEffect = (source, { shift }) => {
+  const args = trashArgs(source, shift);
+  if (!args) return null;
+
+  return { kind: "jj", args, hunk: hunkRef(source, HunkOp.Revert), destructive: true };
+};
 
 const CONTEXTS: DropContext[] = Object.values(Zone).flatMap((zone) => [
   { zone, shift: false },
