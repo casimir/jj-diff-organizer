@@ -5,6 +5,7 @@ import { describeAction, Zone, type DragSource, type DropAction, type DropEffect
 import { useGraphStore } from "@/store/graph";
 import { useHistoryStore } from "@/store/history";
 import { useUiStore } from "@/store/ui";
+import { HunkOp } from "@/types";
 
 interface DragState {
   source: DragSource | null;
@@ -45,7 +46,7 @@ export const useDragStore = create<DragState>((set, get) => ({
 
     try {
       const source = get().source;
-      const run = await api.runJj(a.args, source?.kind === "hunk" ? { path: source.path, digest: source.digest } : undefined);
+      const run = await api.runJj(a.args, source?.kind === "hunk" ? { op: HunkOp.Keep, path: source.path, digest: source.digest } : undefined);
       if (run.exit_code !== 0) useHistoryStore.getState().select(`failure-${run.id}`);
     } catch (e) {
       useGraphStore.setState({ error: api.errorMessage(e) });

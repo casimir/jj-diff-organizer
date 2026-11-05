@@ -83,7 +83,14 @@ export interface FileView {
 
 export type Marks = Record<string, string[]>;
 
+export const HunkOp = {
+  Keep: "keep",
+  Revert: "revert",
+} as const;
+export type HunkOp = (typeof HunkOp)[keyof typeof HunkOp];
+
 export interface HunkRef {
+  op: HunkOp;
   path: string;
   digest: string;
 }

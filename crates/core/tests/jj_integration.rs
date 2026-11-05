@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use jjdo_core::diff::Status;
-use jjdo_core::hunk::hunk_digests;
+use jjdo_core::hunk::{HunkOp, hunk_digests};
 use jjdo_core::jj::{HUNK_TOOL, Jj, hunk_tool_config};
 use jjdo_core::repo::Repo;
 use jjdo_core::watch::OpWatch;
@@ -73,7 +73,12 @@ fn squash_hunk_into(dir: &Path, into: &str, digest: &str) -> std::process::Outpu
     let probe = env!("CARGO_BIN_EXE_hunk-probe");
     Command::new("jj")
         .args(["--no-pager", "--color=never"])
-        .args(hunk_tool_config(Path::new(probe), "a.txt", digest))
+        .args(hunk_tool_config(
+            Path::new(probe),
+            HunkOp::Keep,
+            "a.txt",
+            digest,
+        ))
         .args([
             "squash",
             "--from",
@@ -89,6 +94,43 @@ fn squash_hunk_into(dir: &Path, into: &str, digest: &str) -> std::process::Outpu
         .env("JJ_EMAIL", "test@example.com")
         .output()
         .unwrap()
+}
+
+fn revert_hunk(dir: &Path, digest: &str) -> std::process::Output {
+    let probe = env!("CARGO_BIN_EXE_hunk-probe");
+    Command::new("jj")
+        .args(["--no-pager", "--color=never"])
+        .args(hunk_tool_config(
+            Path::new(probe),
+            HunkOp::Revert,
+            "a.txt",
+            digest,
+        ))
+        .args(["diffedit", "-r", "source", "--tool", HUNK_TOOL, "a.txt"])
+        .current_dir(dir)
+        .env("JJ_USER", "test")
+        .env("JJ_EMAIL", "test@example.com")
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn diffedit_tool_reverts_only_the_selected_hunk() {
+    let (dir, old, new) = two_hunk_repo();
+    let p = dir.path();
+    let digests = hunk_digests(&old, &new);
+
+    let out = revert_hunk(p, &digests[0]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    assert_eq!(
+        jj_ok(p, &["file", "show", "-r", "source", "a.txt"]),
+        numbered(&[(18, "edited 18")])
+    );
 }
 
 #[test]

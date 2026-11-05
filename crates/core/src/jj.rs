@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::diff::{FilePair, parse_git_diff};
-use crate::hunk::EDITOR_COMMAND;
+use crate::hunk::HunkOp;
 use crate::repo::Repo;
 use crate::shell_path::jj_command;
 
@@ -295,10 +295,9 @@ fn parse_lines<'a, T: DeserializeOwned>(
         .collect()
 }
 
-/// `--config` arguments that define `HUNK_TOOL` as `exe`, keeping only one hunk of `path`.
-pub fn hunk_tool_config(exe: &Path, path: &str, digest: &str) -> Vec<String> {
+pub fn hunk_tool_config(exe: &Path, op: HunkOp, path: &str, digest: &str) -> Vec<String> {
     let toml_str = |s: &str| serde_json::to_string(s).expect("a string always serializes");
-    let edit_args = [EDITOR_COMMAND, "$left", "$right", path, digest]
+    let edit_args = [op.command(), "$left", "$right", path, digest]
         .map(toml_str)
         .join(",");
     vec![

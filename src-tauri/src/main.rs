@@ -9,7 +9,7 @@ use std::sync::{Mutex, OnceLock};
 
 use jjdo_core::diff::{FileView, file_view};
 use jjdo_core::history::{Entry, Failure, History};
-use jjdo_core::hunk::try_editor;
+use jjdo_core::hunk::{HunkOp, try_editor};
 use jjdo_core::jj::{Change, Jj, Run, hunk_tool_config, now_ms};
 use jjdo_core::pty::Pty;
 use jjdo_core::repo::Repo;
@@ -59,6 +59,7 @@ impl App {
 
 #[derive(Deserialize)]
 struct HunkRef {
+    op: HunkOp,
     path: String,
     digest: String,
 }
@@ -208,7 +209,7 @@ async fn run_jj(
     let config = match hunk {
         Some(h) => {
             let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-            hunk_tool_config(&exe, &h.path, &h.digest)
+            hunk_tool_config(&exe, h.op, &h.path, &h.digest)
         }
         None => Vec::new(),
     };

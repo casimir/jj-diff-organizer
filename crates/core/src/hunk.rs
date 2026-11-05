@@ -4,8 +4,29 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use jj_diff::{DiffSpanStyle, canonical_review_snapshot, compute_file_diff_full_plain};
+use serde::Deserialize;
 
-pub const EDITOR_COMMAND: &str = "keep-hunk";
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum HunkOp {
+    Keep,
+    Revert,
+}
+
+impl HunkOp {
+    const ALL: [HunkOp; 2] = [HunkOp::Keep, HunkOp::Revert];
+
+    pub const fn command(self) -> &'static str {
+        match self {
+            HunkOp::Keep => "keep-hunk",
+            HunkOp::Revert => "revert-hunk",
+        }
+    }
+
+    fn from_command(command: &str) -> Option<HunkOp> {
+        Self::ALL.into_iter().find(|op| op.command() == command)
+    }
+}
 
 pub fn hunk_digests(old: &str, new: &str) -> Vec<String> {
     canonical_review_snapshot(old, new)
@@ -33,6 +54,24 @@ pub fn hunk_groups(changed: impl IntoIterator<Item = bool>) -> Vec<Option<usize>
 
 /// `old` with only the hunk identified by `digest` applied from `new`.
 pub fn apply_only(old: &str, new: &str, digest: &str) -> io::Result<String> {
+    splice(old, new, digest, |group, target| group == Some(target))
+}
+
+pub fn revert_only(old: &str, new: &str, digest: &str) -> io::Result<String> {
+    splice(old, new, digest, |group, target| {
+        group.is_some_and(|g| g != target)
+    })
+}
+
+/// Builds a file from `old` and `new`, line by line. Unchanged lines are kept. For a changed line,
+/// `takes_new(hunk, target)` picks `new`'s version or `old`'s, `hunk` being the hunk the line
+/// belongs to and `target` the one identified by `digest`.
+fn splice(
+    old: &str,
+    new: &str,
+    digest: &str,
+    takes_new: impl Fn(Option<usize>, usize) -> bool,
+) -> io::Result<String> {
     let target = hunk_digests(old, new)
         .iter()
         .position(|d| d == digest)
@@ -50,7 +89,7 @@ pub fn apply_only(old: &str, new: &str, digest: &str) -> io::Result<String> {
     let new_lines: Vec<&str> = new.split_inclusive('\n').collect();
     let mut out = String::new();
     for (line, group) in lines.iter().zip(groups) {
-        let applies = group == Some(target);
+        let applies = takes_new(group, target);
         match line.style {
             DiffSpanStyle::Added if applies => out.push_str(raw(&new_lines, line.new_line_no)),
             DiffSpanStyle::Added => {}
@@ -67,31 +106,49 @@ fn raw<'a>(lines: &[&'a str], line_no: Option<u32>) -> &'a str {
         .expect("diff line numbers index the sources it was computed from")
 }
 
-/// Runs the diff editor when `args` (the process arguments after the program name) are
-/// `keep-hunk <left> <right> <path> <digest>`, as jj calls it through `merge-tools`.
+/// Runs the diff editor when `args` is a `HunkOp` command with its arguments, as jj calls it
+/// through `merge-tools`.
 pub fn try_editor(args: &[String]) -> Option<ExitCode> {
     let (command, rest) = args.split_first()?;
-    if command != EDITOR_COMMAND {
-        return None;
-    }
+    let op = HunkOp::from_command(command)?;
     let [left, right, path, digest] = rest else {
-        eprintln!("usage: {EDITOR_COMMAND} <left> <right> <path> <digest>");
+        eprintln!("usage: {} <left> <right> <path> <digest>", op.command());
         return Some(ExitCode::from(2));
     };
     Some(
-        match keep_only_hunk(Path::new(left), Path::new(right), path, digest) {
+        match edit_hunk(op, Path::new(left), Path::new(right), path, digest) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
-                eprintln!("{EDITOR_COMMAND}: {e}");
+                eprintln!("{}: {e}", op.command());
                 ExitCode::FAILURE
             }
         },
     )
 }
 
-/// Diff editor body: leaves in `right` only the hunk `digest` of `rel_path`, everything
-/// else reset to `left`.
-pub fn keep_only_hunk(left: &Path, right: &Path, rel_path: &str, digest: &str) -> io::Result<()> {
+/// Diff editor body. `Keep` leaves in `right` only the hunk `digest` of `rel_path`, everything
+/// else reset to `left`. `Revert` undoes that hunk in `right` and touches nothing else.
+pub fn edit_hunk(
+    op: HunkOp,
+    left: &Path,
+    right: &Path,
+    rel_path: &str,
+    digest: &str,
+) -> io::Result<()> {
+    if op == HunkOp::Keep {
+        reset_other_files(left, right, rel_path)?;
+    }
+
+    let old = fs::read_to_string(left.join(rel_path)).unwrap_or_default();
+    let new = fs::read_to_string(right.join(rel_path))?;
+    let edited = match op {
+        HunkOp::Keep => apply_only(&old, &new, digest)?,
+        HunkOp::Revert => revert_only(&old, &new, digest)?,
+    };
+    fs::write(right.join(rel_path), edited)
+}
+
+fn reset_other_files(left: &Path, right: &Path, rel_path: &str) -> io::Result<()> {
     let mut paths = Vec::new();
     collect(left, left, &mut paths)?;
     collect(right, right, &mut paths)?;
@@ -109,10 +166,6 @@ pub fn keep_only_hunk(left: &Path, right: &Path, rel_path: &str, digest: &str) -
             fs::remove_file(&r)?;
         }
     }
-
-    let old = fs::read_to_string(left.join(rel_path)).unwrap_or_default();
-    let new = fs::read_to_string(right.join(rel_path))?;
-    fs::write(right.join(rel_path), apply_only(&old, &new, digest)?)?;
     Ok(())
 }
 
@@ -146,6 +199,22 @@ mod tests {
         assert_eq!(
             apply_only(old, &new, &digests[1]).unwrap(),
             old.replace("second", "SECOND")
+        );
+    }
+
+    #[test]
+    fn revert_only_undoes_nothing_but_the_chosen_hunk() {
+        let old = "keep  \r\nfirst\r\nmid \r\n\r\nsecond\r\ntail";
+        let new = old.replace("first", "FIRST").replace("second", "SECOND");
+        let digests = hunk_digests(old, &new);
+
+        assert_eq!(
+            revert_only(old, &new, &digests[0]).unwrap(),
+            old.replace("second", "SECOND")
+        );
+        assert_eq!(
+            revert_only(old, &new, &digests[1]).unwrap(),
+            old.replace("first", "FIRST")
         );
     }
 }
