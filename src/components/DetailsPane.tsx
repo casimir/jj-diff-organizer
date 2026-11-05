@@ -1,13 +1,15 @@
 import { useRef, type MouseEvent } from "react";
-import { useDraggable } from "@dnd-kit/react";
 import { Group, Panel } from "react-resizable-panels";
 
 import { DiffView } from "@/components/DiffView";
 import { Handle } from "@/components/Handle";
 import { ReviewDot } from "@/components/ReviewDot";
+import { ErrorText } from "@/components/ui/ErrorText";
 import { KeyBadge } from "@/components/ui/KeyBadge";
+import { ListRow } from "@/components/ui/ListRow";
 import { StatusBar } from "@/components/ui/StatusBar";
-import { dragProps, type DragSource } from "@/graph/drop";
+import type { DragSource } from "@/graph/drop";
+import { useDragSource } from "@/hooks/useDragSource";
 import { fileState } from "@/review/hunks";
 import { SelectMode, selectIsWorkingCopy, selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, type FileView } from "@/types";
@@ -36,21 +38,16 @@ function FileRow({ file, selected, reviewable }: {
     path: file.path,
     renamedFrom: file.status === FileStatus.Renamed ? file.old_path : null,
   };
-  const { isDragSource } = useDraggable({
-    id: `file:${file.path}`,
-    element: ref,
-    disabled: !change || change.immutable,
-    ...(source && dragProps(source)),
-  });
+  const dragAttributes = useDragSource(`file:${file.path}`, ref, source, !change || change.immutable);
   const name = file.path.split("/").pop();
   const { letter, className } = STATUS[file.status];
   return (
-    <div
+    <ListRow
       ref={ref}
+      selected={selected}
       onClick={(e) => useGraphStore.getState().selectFile(file.path, selectMode(e))}
-      className={`flex items-center gap-2 px-2 py-1 ${selected ? "bg-selected" : "hover:bg-subtle"} ${
-        isDragSource ? "dragging" : ""
-      }`}
+      {...dragAttributes}
+      className="flex items-center gap-2 px-2 py-1"
     >
       {reviewable &&
         (state ? (
@@ -63,7 +60,7 @@ function FileRow({ file, selected, reviewable }: {
         <div className="truncate">{name}</div>
         <div className="truncate text-xs text-muted">{file.path}</div>
       </div>
-    </div>
+    </ListRow>
   );
 }
 
@@ -78,7 +75,7 @@ export function DetailsPane() {
   if (!selectedId) return <div className="p-2 text-muted">Select a change in the graph.</div>;
   return (
     <div className="flex h-full flex-col">
-      {detailsError && <pre className="p-2 whitespace-pre-wrap text-danger">{detailsError}</pre>}
+      {detailsError && <ErrorText>{detailsError}</ErrorText>}
       <div className="min-h-0 flex-1">
         <Group orientation="horizontal">
           <Panel defaultSize="256px" minSize="15%">

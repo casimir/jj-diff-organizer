@@ -13,7 +13,7 @@ export function ReviewDot({ state, onClick }: { state: HunkState; onClick: () =>
       type="button"
       title={title}
       aria-label={title}
-      className={`size-3 shrink-0 rounded-full border ${className}`}
+      className={`relative size-3 shrink-0 rounded-full border before:absolute before:top-1/2 before:left-1/2 before:size-target before:-translate-1/2 before:content-[''] ${className}`}
       onClick={(e) => {
         e.stopPropagation();
         onClick();

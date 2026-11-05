@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 
 import { GraphRow } from "@/components/GraphRow";
+import { Button, ButtonVariant } from "@/components/ui/Button";
+import { ErrorText } from "@/components/ui/ErrorText";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { TextInput } from "@/components/ui/TextInput";
@@ -22,15 +24,15 @@ export function GraphPane() {
     <div data-pane="graph" tabIndex={-1} className="flex h-full flex-col outline-none">
       <div className="flex gap-2 border-b border-line p-1">
         <RevsetInput key={revset} initial={revset} />
-        <button
-          className="rounded px-2 hover:bg-selected"
+        <Button
+          variant={ButtonVariant.Ghost}
           title="Settings"
           onClick={() => useUiStore.getState().setSettingsOpen(true)}
         >
           ⚙
-        </button>
+        </Button>
       </div>
-      {error && <pre className="border-b border-danger p-2 whitespace-pre-wrap text-danger">{error}</pre>}
+      {error && <ErrorText className="border-b border-danger">{error}</ErrorText>}
       <div className="min-h-0 flex-1 overflow-auto">
         {layout.rows.map((row) => (
           <GraphRow

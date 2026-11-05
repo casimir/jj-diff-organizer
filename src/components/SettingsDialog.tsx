@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Select";
 import { useSettingsStore } from "@/store/settings";
 import { useUiStore } from "@/store/ui";
 import { Theme } from "@/types";
@@ -12,7 +14,7 @@ export function SettingsDialog() {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim"
+      className="fixed inset-0 z-(--z-dialog) flex items-center justify-center bg-scrim"
       onClick={() => useUiStore.getState().setSettingsOpen(false)}
     >
       <div
@@ -22,22 +24,21 @@ export function SettingsDialog() {
         <h2 className="text-base font-semibold">Settings</h2>
         <label className="block">
           Theme
-          <select
-            className="mt-1 block w-full rounded bg-subtle p-1"
+          <Select
+            className="mt-1 block w-full"
             value={theme ?? SYSTEM}
             onChange={(e) => void update({ theme: toTheme(e.target.value) })}
           >
             <option value={SYSTEM}>System</option>
             <option value={Theme.Light}>Light</option>
             <option value={Theme.Dark}>Dark</option>
-          </select>
+          </Select>
         </label>
-        <button
-          className="rounded bg-selected px-3 py-1 hover:bg-strong"
+        <Button
           onClick={() => useUiStore.getState().setSettingsOpen(false)}
         >
           Close
-        </button>
+        </Button>
       </div>
     </div>
   );

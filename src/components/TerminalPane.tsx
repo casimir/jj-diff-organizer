@@ -1,15 +1,15 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { useDroppable } from "@dnd-kit/react";
 import { useEffect, useRef, useState } from "react";
 
 import * as api from "@/api";
+import { ErrorText } from "@/components/ui/ErrorText";
 import { KeyBadge } from "@/components/ui/KeyBadge";
-import { dropProps, TERMINAL_ACCEPTS, terminalEffect } from "@/graph/drop";
+import { terminalEffect } from "@/graph/drop";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
+import { dropAttributes, useDropTarget } from "@/hooks/useDropTarget";
 import { MOD } from "@/keys";
-import { selectCommand, useDragStore } from "@/store/drag";
 import { useUiStore } from "@/store/ui";
 import { TERMINAL_THEMES } from "@/terminal/themes";
 
@@ -19,8 +19,7 @@ const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to 
 export function TerminalPane() {
   const host = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
-  useDroppable({ id: TERMINAL_ID, element: pane, ...dropProps(terminalEffect, TERMINAL_ACCEPTS) });
-  const dropHere = useDragStore((s) => s.targetId === TERMINAL_ID && selectCommand(s) !== null);
+  const { state, destructive } = useDropTarget(TERMINAL_ID, pane, terminalEffect);
   const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState(0);
@@ -99,15 +98,12 @@ export function TerminalPane() {
     <div
       ref={pane}
       data-terminal
+      {...dropAttributes(state, destructive)}
       style={{ background: theme.background }}
-      className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-50" : "relative h-full"} ${
-        dropHere ? "outline outline-1 -outline-offset-1 outline-accent" : ""
-      }`}
+      className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-(--z-overlay)" : "relative h-full"}`}
     >
       {error && (
-        <pre className="absolute inset-x-0 top-0 z-10 bg-removed p-2 whitespace-pre-wrap text-danger">
-          {error}
-        </pre>
+        <ErrorText className="absolute inset-x-0 top-0 z-(--z-sticky)">{error}</ErrorText>
       )}
       <div key={session} ref={host} className="min-h-0 w-full flex-1" />
       <div className="flex shrink-0 gap-3 pt-1 text-muted">

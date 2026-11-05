@@ -24,15 +24,63 @@
   --color-syntax-type: light-dark(var(--color-teal-700), var(--color-teal-300));
   --color-syntax-function: light-dark(var(--color-sky-700), var(--color-sky-300));
   --color-syntax-attribute: light-dark(var(--color-yellow-700), var(--color-yellow-300));
-}
-
-@utility dragging {
-  opacity: 40%;
+  --spacing-target: 24px;
+  --text-badge: 11px;
+  --text-badge--line-height: 1rem;
 }
 
 :root {
   color-scheme: light dark;
   --diff-header-h: 1.75rem;
+  --drop-color: var(--color-accent);
+  --indicator-width: 2px;
+  --opacity-inactive: 40%;
+  --z-dialog: 60;
+  --z-overlay: 50;
+  --z-sticky: 10;
+}
+
+[data-cursor] {
+  box-shadow: inset 0 0 0 var(--indicator-width) var(--color-accent);
+}
+
+[data-destructive] {
+  --drop-color: var(--color-danger);
+}
+
+:disabled,
+[data-drag="source"] {
+  opacity: var(--opacity-inactive);
+}
+
+[data-drag] {
+  cursor: grab;
+}
+
+[data-drop="candidate"] {
+  outline: var(--indicator-width) dashed var(--drop-color);
+  outline-offset: calc(var(--indicator-width) * -1);
+}
+
+[data-drop="onto"] {
+  outline: var(--indicator-width) solid var(--drop-color);
+  outline-offset: calc(var(--indicator-width) * -1);
+}
+
+[data-drop="above"] {
+  box-shadow: inset 0 var(--indicator-width) 0 var(--drop-color);
+}
+
+[data-drop="below"] {
+  box-shadow: inset 0 calc(var(--indicator-width) * -1) 0 var(--drop-color);
+}
+
+[data-row]:hover {
+  background-color: var(--color-subtle);
+}
+
+[data-row][data-selected] {
+  background-color: var(--color-selected);
 }
 
 html,

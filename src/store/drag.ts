@@ -22,12 +22,12 @@ interface DragState {
 
 const idle = { source: null, targetId: null, effect: null, zone: Zone.Onto, shift: false };
 
-function action(s: DragState): DropAction | null {
+export function selectAction(s: DragState): DropAction | null {
   return s.source && s.effect ? s.effect(s.source, s) : null;
 }
 
 export const selectCommand = (s: DragState): string | null => {
-  const a = action(s);
+  const a = selectAction(s);
   return a && describeAction(a);
 };
 
@@ -39,7 +39,7 @@ export const useDragStore = create<DragState>((set, get) => ({
   end: () => set(idle),
 
   drop: async () => {
-    const a = action(get());
+    const a = selectAction(get());
     if (!a) return;
 
     if (a.kind === "insert") return useUiStore.getState().insertIntoTerminal(`${a.text} `);

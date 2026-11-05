@@ -1,19 +1,21 @@
 import { useRef, type ReactNode } from "react";
-import { useDraggable } from "@dnd-kit/react";
 
-import { dragProps, type DragSource } from "@/graph/drop";
+import { Chip, type ChipTone } from "@/components/ui/Chip";
+import type { DragSource } from "@/graph/drop";
+import { useDragSource } from "@/hooks/useDragSource";
 
-export function DragLabel({ id, source, className, children }: {
+export function DragLabel({ id, source, tone, className, children }: {
   id: string;
   source: DragSource;
-  className: string;
+  tone: ChipTone;
+  className?: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const { isDragSource } = useDraggable({ id, element: ref, ...dragProps(source) });
+  const dragAttributes = useDragSource(id, ref, source);
   return (
-    <span ref={ref} className={`${className} ${isDragSource ? "dragging" : "cursor-grab"}`}>
+    <Chip ref={ref} tone={tone} className={className} {...dragAttributes}>
       {children}
-    </span>
+    </Chip>
   );
 }

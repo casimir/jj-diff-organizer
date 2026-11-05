@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useDraggable } from "@dnd-kit/react";
 
 import { ReviewDot } from "@/components/ReviewDot";
-import { dragProps, type DragSource } from "@/graph/drop";
+import type { DragSource } from "@/graph/drop";
+import { useDragSource } from "@/hooks/useDragSource";
 import { hunkState, segments } from "@/review/hunks";
 import { selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, LineKind, type DiffLine, type FileView } from "@/types";
@@ -74,12 +74,7 @@ function Hunk({ file, group, lines, reviewable }: {
     path: file.path,
     digest: file.digests[group],
   };
-  const { isDragSource } = useDraggable({
-    id: `hunk:${file.path}:${group}`,
-    element: ref,
-    disabled: !movable,
-    ...(source && dragProps(source)),
-  });
+  const dragAttributes = useDragSource(`hunk:${file.path}:${group}`, ref, source, !movable);
   useEffect(() => {
     if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
   }, [isCursor]);
@@ -89,7 +84,9 @@ function Hunk({ file, group, lines, reviewable }: {
     <div
       ref={ref}
       onClick={() => useGraphStore.getState().setCursor(pos)}
-      className={`flex scroll-mt-[calc(var(--diff-header-h)+1lh)] scroll-mb-[1lh] ${isCursor ? "ring-1 ring-accent ring-inset" : ""} ${isDragSource ? "dragging" : ""}`}
+      {...dragAttributes}
+      data-cursor={isCursor || undefined}
+      className="flex scroll-mt-[calc(var(--diff-header-h)+1lh)] scroll-mb-[1lh]"
     >
       {reviewable && (
         <div className={`${RAIL} flex flex-col items-center gap-1 pt-1`}>
@@ -137,7 +134,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
   );
   return (
     <section>
-      <div className="sticky top-0 z-10 flex h-(--diff-header-h) items-center border-b border-line bg-canvas px-2 font-sans">
+      <div className="sticky top-0 z-(--z-sticky) flex h-(--diff-header-h) items-center border-b border-line bg-canvas px-2 font-sans">
         <FileTitle file={file} />
       </div>
       {blocks.length === 0 && <div className="px-2 py-1 text-dim">No content changes</div>}

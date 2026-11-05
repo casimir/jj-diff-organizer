@@ -1,10 +1,13 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import { useDraggable, useDroppable } from "@dnd-kit/react";
 
 import { DragLabel } from "@/components/DragLabel";
-import { changeEffect, dragProps, dropProps, Zone, type DragSource } from "@/graph/drop";
+import { ChipTone } from "@/components/ui/Chip";
+import { ListRow } from "@/components/ui/ListRow";
+import { changeEffect, Zone, type DragSource } from "@/graph/drop";
 import type { Row } from "@/graph/layout";
-import { selectCommand, useDragStore } from "@/store/drag";
+import { useDragSource } from "@/hooks/useDragSource";
+import { dropAttributes, useDropTarget } from "@/hooks/useDropTarget";
+import { useDragStore } from "@/store/drag";
 
 const ROW_HEIGHT = 28;
 const LANE_WIDTH = 14;
@@ -30,33 +33,23 @@ export const GraphRow = memo(function GraphRow({
 
   const ref = useRef<HTMLDivElement>(null);
   const source: DragSource = { kind: "change", change };
-  const { isDragSource } = useDraggable({
-    id: `change:${change.commit_id}`,
-    element: ref,
-    disabled: change.immutable,
-    ...dragProps(source),
-  });
+  const dragAttributes = useDragSource(`change:${change.commit_id}`, ref, source, change.immutable);
   const rowId = `row:${change.commit_id}`;
   const effect = useMemo(() => changeEffect(change), [change]);
-  useDroppable({ id: rowId, element: ref, ...dropProps(effect) });
+  const { active, state, destructive } = useDropTarget(rowId, ref, effect);
   useEffect(() => {
     if (selected) ref.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
-  const indicator = useDragStore((s) => {
-    if (s.targetId !== rowId || !selectCommand(s)) return null;
-
-    return s.source?.kind === "change" ? s.zone : Zone.Onto;
-  });
+  const edge = useDragStore((s) => (active && s.source?.kind === "change" && s.zone !== Zone.Onto ? s.zone : null));
 
   return (
-    <div
+    <ListRow
       ref={ref}
+      selected={selected}
       onClick={() => onSelect(change.change_id)}
-      className={`flex items-center pl-2 ${selected ? "bg-selected" : "hover:bg-subtle"} ${
-        isDragSource ? "dragging" : ""
-      } ${indicator === Zone.Onto ? "outline outline-1 -outline-offset-1 outline-accent" : ""} ${
-        indicator === Zone.Above ? "border-t-2 border-accent" : ""
-      } ${indicator === Zone.Below ? "border-b-2 border-accent" : ""}`}
+      {...dragAttributes}
+      {...dropAttributes(edge ?? state, destructive)}
+      className="flex items-center pl-2"
       style={{ height: ROW_HEIGHT }}
     >
       <svg width={laneCount * LANE_WIDTH} height={ROW_HEIGHT} className="shrink-0 stroke-muted">
@@ -93,7 +86,8 @@ export const GraphRow = memo(function GraphRow({
         <DragLabel
           id="wc"
           source={{ kind: "wc", change }}
-          className="mr-1 shrink-0 rounded bg-success/20 px-1 text-success"
+          tone={ChipTone.Success}
+          className="mr-1 shrink-0"
         >
           @
         </DragLabel>
@@ -103,7 +97,8 @@ export const GraphRow = memo(function GraphRow({
           key={b}
           id={`bookmark:${b}`}
           source={{ kind: "bookmark", name: b }}
-          className="mr-1 shrink-0 rounded bg-accent/20 px-1 text-accent"
+          tone={ChipTone.Accent}
+          className="mr-1 shrink-0"
         >
           {b}
           {change.unsynced_bookmarks.includes(b) && "*"}
@@ -112,6 +107,6 @@ export const GraphRow = memo(function GraphRow({
       <span className={`truncate ${change.desc ? "" : "text-muted italic"}`}>
         {change.desc || (change.empty ? "(empty) (no description)" : "(no description)")}
       </span>
-    </div>
+    </ListRow>
   );
 });

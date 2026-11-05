@@ -14,7 +14,6 @@ export type DragSource =
   | { kind: "file"; from: Change; path: string; renamedFrom: string | null }
   | { kind: "hunk"; from: Change; path: string; digest: string };
 
-/** Name of the diff editor the backend defines for a hunk move (`HUNK_TOOL` in `crates/core/src/jj.rs`). */
 export const HUNK_TOOL = "jjdo-hunk";
 
 const EDGE = 0.25;
@@ -76,25 +75,23 @@ export function shellQuote(arg: string): string {
   return PLAIN.test(arg) ? arg : `'${arg.replaceAll("'", `'\\''`)}'`;
 }
 
-/** Same text as `display_command` in `crates/core/src/jj.rs`, so a preview matches the history entry. */
 export function displayCommand(args: string[]): string {
   return ["jj", ...args.map(shellQuote)].join(" ");
 }
 
-export type DropAction = { kind: "jj"; args: string[] } | { kind: "insert"; text: string };
+export type DropAction =
+  | { kind: "jj"; args: string[]; destructive: boolean }
+  | { kind: "insert"; text: string };
 
 export interface DropContext {
   zone: Zone;
   shift: boolean;
 }
 
-/** What dropping `source` does on a target; `null` when this drop makes no sense. */
 export type DropEffect = (source: DragSource, context: DropContext) => DropAction | null;
 
 const TERMINAL_KINDS = ["bookmark", "change", "file"] as const;
 type TerminalSource = Extract<DragSource, { kind: (typeof TERMINAL_KINDS)[number] }>;
-
-export const TERMINAL_ACCEPTS = [...TERMINAL_KINDS];
 
 const terminalKinds: readonly string[] = TERMINAL_KINDS;
 
@@ -115,14 +112,29 @@ function terminalText(source: TerminalSource): string {
 
 export const dragProps = (source: DragSource) => ({ type: source.kind, data: { source } });
 
-export const dropProps = (effect: DropEffect, accept?: DragSource["kind"][]) => ({ accept, data: { effect } });
+export const dropProps = (effect: DropEffect) => ({ data: { effect } });
 
 export const changeEffect =
   (target: Change): DropEffect =>
   (source, { zone, shift }) => {
     const args = dropArgs(source, target, zone, shift);
-    return args && { kind: "jj", args };
+    if (!args) return null;
+
+    return { kind: "jj", args, destructive: false };
   };
+
+const CONTEXTS: DropContext[] = Object.values(Zone).flatMap((zone) => [
+  { zone, shift: false },
+  { zone, shift: true },
+]);
+
+export const dropActions = (effect: DropEffect, source: DragSource): DropAction[] =>
+  CONTEXTS.flatMap((context) => effect(source, context) ?? []);
+
+export const isDestructive = (action: DropAction): boolean => action.kind === "jj" && action.destructive;
+
+export const DropState = { Candidate: "candidate", ...Zone } as const;
+export type DropState = (typeof DropState)[keyof typeof DropState];
 
 export const terminalEffect: DropEffect = (source) =>
   isTerminalSource(source) ? { kind: "insert", text: terminalText(source) } : null;

@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { displayCommand, dropArgs, HUNK_TOOL, terminalEffect, Zone, zoneAt, type DragSource } from "@/graph/drop";
+import {
+  changeEffect,
+  displayCommand,
+  dropActions,
+  dropArgs,
+  HUNK_TOOL,
+  isDestructive,
+  terminalEffect,
+  Zone,
+  zoneAt,
+  type DragSource,
+} from "@/graph/drop";
 import type { Change } from "@/types";
 
 function change(id: string, overrides: Partial<Change> = {}): Change {
@@ -101,6 +112,22 @@ describe("dropArgs for review items", () => {
     expect(dropArgs(file, x, Zone.Onto, false)).toBeNull();
     expect(dropArgs(file, change("m", { immutable: true }), Zone.Onto, false)).toBeNull();
     expect(dropArgs({ ...hunk, from: change("m", { immutable: true }) }, y, Zone.Onto, false)).toBeNull();
+  });
+});
+
+describe("dropActions", () => {
+  it("lists what a target does with the source, whatever the zone or shift state", () => {
+    expect(dropActions(changeEffect(y), dragX)).not.toHaveLength(0);
+    expect(dropActions(changeEffect(change("m", { immutable: true })), dragX)).not.toHaveLength(0);
+  });
+
+  it("is empty when no context accepts the source", () => {
+    expect(dropActions(changeEffect(x), dragX)).toEqual([]);
+    expect(dropActions(terminalEffect, { kind: "hunk", from: x, path: "a", digest: "d" })).toEqual([]);
+  });
+
+  it("flags no move as destructive", () => {
+    expect(dropActions(changeEffect(y), dragX).some(isDestructive)).toBe(false);
   });
 });
 

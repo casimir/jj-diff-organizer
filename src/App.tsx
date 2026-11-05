@@ -7,6 +7,7 @@ import { DragLayer } from "@/components/DragLayer";
 import { GraphPane } from "@/components/GraphPane";
 import { Handle } from "@/components/Handle";
 import { HistoryPane } from "@/components/HistoryPane";
+import { ErrorText } from "@/components/ui/ErrorText";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { TerminalPane } from "@/components/TerminalPane";
 import { WelcomePage } from "@/components/WelcomePage";
@@ -46,7 +47,7 @@ export function App() {
   }, []);
 
   const fatal = startupError ?? repoFatal;
-  if (fatal) return <pre className="p-4 whitespace-pre-wrap text-danger">{fatal}</pre>;
+  if (fatal) return <ErrorText>{fatal}</ErrorText>;
   if (!loaded || repoStatus === RepoStatus.Pending) return null;
   if (repoStatus === RepoStatus.Welcome) return <WelcomePage />;
 
