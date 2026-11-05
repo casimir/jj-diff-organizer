@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import { DragDropProvider, DragOverlay, useDragDropManager } from "@dnd-kit/react";
 
 import { DRAG_LABEL } from "@/graph/collision";
 import { isDestructive, PreviewState, Zone, zoneAt, type DragSource, type DropEffect } from "@/graph/drop";
@@ -9,7 +9,11 @@ function useTrackShiftWhileDragging() {
   const dragging = useDragStore((s) => s.source !== null);
   useEffect(() => {
     if (!dragging) return;
-    const track = (e: KeyboardEvent | PointerEvent) => useDragStore.getState().setShift(e.shiftKey);
+    // WebKitGTK can leave `shiftKey` set on the keyup of Shift itself.
+    const track = (e: KeyboardEvent | PointerEvent) => {
+      const shift = e instanceof KeyboardEvent && e.key === "Shift" ? e.type === "keydown" : e.shiftKey;
+      useDragStore.getState().setShift(shift);
+    };
     window.addEventListener("keydown", track);
     window.addEventListener("keyup", track);
     window.addEventListener("pointermove", track);
@@ -19,6 +23,32 @@ function useTrackShiftWhileDragging() {
       window.removeEventListener("pointermove", track);
     };
   }, [dragging]);
+}
+
+function CancelOnRightClick() {
+  const manager = useDragDropManager();
+  const dragging = useDragStore((s) => s.source !== null);
+  useEffect(() => {
+    if (!dragging || !manager) return;
+
+    // Pressing a second button while one is held fires `pointermove`, not `pointerdown`.
+    let canceled = false;
+    const cancel = (e: PointerEvent) => {
+      if (canceled || !(e.buttons & 2)) return;
+
+      canceled = true;
+      e.preventDefault();
+      manager.actions.stop({ event: e, canceled: true });
+      window.addEventListener("contextmenu", (ev) => ev.preventDefault(), { capture: true, once: true });
+    };
+    window.addEventListener("pointerdown", cancel, true);
+    window.addEventListener("pointermove", cancel, true);
+    return () => {
+      window.removeEventListener("pointerdown", cancel, true);
+      window.removeEventListener("pointermove", cancel, true);
+    };
+  }, [dragging, manager]);
+  return null;
 }
 
 function label(source: DragSource): string {
@@ -129,6 +159,7 @@ export function DragLayer({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      <CancelOnRightClick />
       <DragOverlay dropAnimation={null}>
         <DragPreview />
       </DragOverlay>
