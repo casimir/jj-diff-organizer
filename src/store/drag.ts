@@ -7,20 +7,34 @@ import { useHistoryStore } from "@/store/history";
 import { useUiStore } from "@/store/ui";
 import { HunkOp } from "@/types";
 
+/** Where the pointer grabbed the source, relative to its top-left corner. */
+interface Grab {
+  x: number;
+  y: number;
+}
+
 interface DragState {
   source: DragSource | null;
+  grab: Grab;
   targetId: string | null;
   effect: DropEffect | null;
   zone: Zone;
   shift: boolean;
-  start: (source: DragSource, shift: boolean) => void;
+  start: (source: DragSource, shift: boolean, grab: Grab) => void;
   over: (targetId: string | null, effect: DropEffect | null, zone: Zone) => void;
   setShift: (shift: boolean) => void;
   end: () => void;
   drop: () => Promise<void>;
 }
 
-const idle = { source: null, targetId: null, effect: null, zone: Zone.Onto, shift: false };
+const idle = {
+  source: null,
+  grab: { x: 0, y: 0 },
+  targetId: null,
+  effect: null,
+  zone: Zone.Onto,
+  shift: false
+};
 
 export function selectAction(s: DragState): DropAction | null {
   return s.source && s.effect ? s.effect(s.source, s) : null;
@@ -33,7 +47,7 @@ export const selectCommand = (s: DragState): string | null => {
 
 export const useDragStore = create<DragState>((set, get) => ({
   ...idle,
-  start: (source, shift) => set({ ...idle, source, shift }),
+  start: (source, shift, grab) => set({ ...idle, source, shift, grab }),
   over: (targetId, effect, zone) => set({ targetId, effect, zone }),
   setShift: (shift) => set({ shift }),
   end: () => set(idle),

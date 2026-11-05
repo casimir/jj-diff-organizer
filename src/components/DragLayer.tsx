@@ -1,8 +1,8 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 
-import { Zone, zoneAt, type DragSource, type DropEffect } from "@/graph/drop";
-import { selectCommand, useDragStore } from "@/store/drag";
+import { isDestructive, PreviewState, Zone, zoneAt, type DragSource, type DropEffect } from "@/graph/drop";
+import { selectAction, selectCommand, useDragStore } from "@/store/drag";
 
 function useTrackShiftWhileDragging() {
   const dragging = useDragStore((s) => s.source !== null);
@@ -37,12 +37,55 @@ function label(source: DragSource): string {
 
 function DragPreview() {
   const source = useDragStore((s) => s.source);
-  const hasTarget = useDragStore((s) => s.effect !== null);
+  const grab = useDragStore((s) => s.grab);
   const command = useDragStore(selectCommand);
+  const destructive = useDragStore((s) => {
+    const action = selectAction(s);
+    return action !== null && isDestructive(action);
+  });
+  const box = useRef<HTMLDivElement>(null);
+  const dragging = source !== null;
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    let frame = 0;
+    const keepInWindow = () => {
+      const el = box.current;
+      const labelEl = el?.firstElementChild;
+      if (el && labelEl) {
+        const shifted = el.style.translate.split(" ").map(parseFloat);
+        const [x = grab.x, y = grab.y] = shifted;
+        const rect = labelEl.getBoundingClientRect();
+        const left = rect.left - x;
+        const top = rect.top - y;
+        const clamp = (pos: number, size: number, max: number, natural: number) =>
+          Math.max(-pos, Math.min(natural, max - pos - size));
+        el.style.translate = `${clamp(left, rect.width, window.innerWidth, grab.x)}px ${clamp(top, rect.height, window.innerHeight, grab.y)}px`;
+      }
+      frame = requestAnimationFrame(keepInWindow);
+    };
+    frame = requestAnimationFrame(keepInWindow);
+    return () => cancelAnimationFrame(frame);
+  }, [dragging, grab]);
+
   if (!source) return null;
+
   return (
-    <div className="w-max rounded bg-canvas px-2 py-1 font-mono whitespace-nowrap shadow ring-1 ring-accent">
-      {hasTarget ? (command ?? "no drop here") : label(source)}
+    <div ref={box} style={{ translate: `${grab.x}px ${grab.y}px` }}>
+      <div
+        data-preview={command === null ? PreviewState.Object : PreviewState.Command}
+        data-destructive={destructive || undefined}
+        className="w-max rounded bg-canvas px-2 py-1 whitespace-nowrap shadow ring-1 ring-(color:--preview-ring)"
+      >
+        {command === null ? (
+          label(source)
+        ) : (
+          <>
+            <span className="text-muted">$</span> {command}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -61,7 +104,10 @@ export function DragLayer({ children }: { children: ReactNode }) {
         if (!source) return;
 
         const shift = operation.activatorEvent instanceof PointerEvent && operation.activatorEvent.shiftKey;
-        useDragStore.getState().start(source, shift);
+        const rect = operation.source?.element?.getBoundingClientRect();
+        const { x, y } = operation.position.initial;
+        const grab = rect ? { x: x - rect.left, y: y - rect.top } : { x: 0, y: 0 };
+        useDragStore.getState().start(source, shift, grab);
       }}
       onDragMove={({ operation }) => {
         const { target } = operation;

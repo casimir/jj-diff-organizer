@@ -75,6 +75,16 @@
   box-shadow: inset 0 calc(var(--indicator-width) * -1) 0 var(--drop-color);
 }
 
+[data-preview="object"] {
+  --preview-ring: var(--color-line);
+}
+
+[data-preview="command"] {
+  --preview-ring: var(--drop-color);
+  font-family: var(--font-mono);
+  background-image: linear-gradient(color-mix(in srgb, var(--drop-color) 20%, transparent) 0 0);
+}
+
 [data-row]:hover {
   background-color: var(--color-subtle);
 }

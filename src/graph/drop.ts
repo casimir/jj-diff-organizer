@@ -133,6 +133,9 @@ export const dropActions = (effect: DropEffect, source: DragSource): DropAction[
 
 export const isDestructive = (action: DropAction): boolean => action.kind === "jj" && action.destructive;
 
+export const PreviewState = { Object: "object", Command: "command" } as const;
+export type PreviewState = (typeof PreviewState)[keyof typeof PreviewState];
+
 export const DropState = { Candidate: "candidate", ...Zone } as const;
 export type DropState = (typeof DropState)[keyof typeof DropState];
 
