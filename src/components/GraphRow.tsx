@@ -36,11 +36,11 @@ export const GraphRow = memo(function GraphRow({
   const dragAttributes = useDragSource(`change:${change.commit_id}`, ref, source, change.immutable);
   const rowId = `row:${change.commit_id}`;
   const effect = useMemo(() => changeEffect(change), [change]);
-  const { active, state, destructive } = useDropTarget(rowId, ref, effect);
+  const active = useDropTarget(rowId, ref, effect);
   useEffect(() => {
     if (selected) ref.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
-  const edge = useDragStore((s) => (active && s.source?.kind === "change" && s.zone !== Zone.Onto ? s.zone : null));
+  const zone = useDragStore((s) => (s.source?.kind === "change" ? s.zone : Zone.Onto));
 
   return (
     <ListRow
@@ -48,7 +48,7 @@ export const GraphRow = memo(function GraphRow({
       selected={selected}
       onClick={() => onSelect(change.change_id)}
       {...dragAttributes}
-      {...dropAttributes(edge ?? state, destructive)}
+      {...dropAttributes(active ? zone : undefined, false)}
       className="flex items-center pl-2"
       style={{ height: ROW_HEIGHT }}
     >

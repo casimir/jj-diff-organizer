@@ -6,7 +6,9 @@ import { ErrorText } from "@/components/ui/ErrorText";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { TextInput } from "@/components/ui/TextInput";
+import { changeEffect, DropState } from "@/graph/drop";
 import { layoutGraph } from "@/graph/layout";
+import { dropAttributes, useDropCandidate } from "@/hooks/useDropTarget";
 import { MOD } from "@/keys";
 import { useGraphStore } from "@/store/graph";
 import { useUiStore } from "@/store/ui";
@@ -19,6 +21,8 @@ export function GraphPane() {
   const error = useGraphStore((s) => s.error);
   const selectedId = useGraphStore((s) => s.selectedId);
   const layout = useMemo(() => layoutGraph(changes), [changes]);
+  const effects = useMemo(() => layout.rows.map((row) => changeEffect(row.change)), [layout]);
+  const { candidate, destructive } = useDropCandidate(effects);
 
   return (
     <div data-pane="graph" tabIndex={-1} className="flex h-full flex-col outline-none">
@@ -33,7 +37,10 @@ export function GraphPane() {
         </Button>
       </div>
       {error && <ErrorText className="border-b border-danger">{error}</ErrorText>}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div
+        {...dropAttributes(candidate ? DropState.Candidate : undefined, destructive)}
+        className="min-h-0 flex-1 overflow-auto"
+      >
         {layout.rows.map((row) => (
           <GraphRow
             key={row.change.commit_id}

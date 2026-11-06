@@ -6,20 +6,22 @@ import { useEffect, useRef, useState } from "react";
 import * as api from "@/api";
 import { ErrorText } from "@/components/ui/ErrorText";
 import { KeyBadge } from "@/components/ui/KeyBadge";
-import { terminalEffect } from "@/graph/drop";
+import { DropState, terminalEffect } from "@/graph/drop";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
-import { dropAttributes, useDropTarget } from "@/hooks/useDropTarget";
+import { dropAttributes, useDropCandidate, useDropTarget } from "@/hooks/useDropTarget";
 import { MOD } from "@/keys";
 import { useUiStore } from "@/store/ui";
 import { TERMINAL_THEMES } from "@/terminal/themes";
 
 const TERMINAL_ID = "terminal";
+const EFFECTS = [terminalEffect];
 const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to restart]");
 
 export function TerminalPane() {
   const host = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
-  const { state, destructive } = useDropTarget(TERMINAL_ID, pane, terminalEffect);
+  const active = useDropTarget(TERMINAL_ID, pane, terminalEffect);
+  const { candidate, destructive } = useDropCandidate(EFFECTS);
   const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState(0);
@@ -98,7 +100,7 @@ export function TerminalPane() {
     <div
       ref={pane}
       data-terminal
-      {...dropAttributes(state, destructive)}
+      {...dropAttributes(active ? DropState.Onto : candidate ? DropState.Candidate : undefined, destructive)}
       style={{ background: theme.background }}
       className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-(--z-overlay)" : "relative h-full"}`}
     >
