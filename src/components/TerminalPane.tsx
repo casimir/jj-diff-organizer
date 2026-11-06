@@ -1,3 +1,4 @@
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
@@ -9,7 +10,7 @@ import { KeyBadge } from "@/components/ui/KeyBadge";
 import { DropState, terminalEffect } from "@/graph/drop";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
 import { dropAttributes, useDropCandidate, useDropTarget } from "@/hooks/useDropTarget";
-import { MOD } from "@/keys";
+import { IS_MAC, MOD } from "@/keys";
 import { useUiStore } from "@/store/ui";
 import { TERMINAL_THEMES } from "@/terminal/themes";
 
@@ -57,6 +58,28 @@ export function TerminalPane() {
     observer.observe(element);
     termRef.current = term;
 
+    if (!IS_MAC) {
+      term.attachCustomKeyEventHandler((e) => {
+        if (e.type !== "keydown" || !e.ctrlKey || !e.shiftKey) return true;
+
+        if (e.code === "KeyC") {
+          e.preventDefault();
+          writeText(term.getSelection()).catch(fail);
+          return false;
+        }
+
+        if (e.code === "KeyV") {
+          e.preventDefault();
+          readText()
+            .then((text) => term.paste(text))
+            .catch(fail);
+          return false;
+        }
+
+        return true;
+      });
+    }
+
     term.onData((data) => {
       if (!exited) api.ptyWrite(data).catch(fail);
       else if (data === "\r") setSession((n) => n + 1);
@@ -88,8 +111,8 @@ export function TerminalPane() {
 
     return () => {
       cancelled = true;
-      useUiStore.getState().setFocusTerminal(() => {});
-      useUiStore.getState().setInsertIntoTerminal(() => {});
+      useUiStore.getState().setFocusTerminal(() => { });
+      useUiStore.getState().setInsertIntoTerminal(() => { });
       observer.disconnect();
       termRef.current = null;
       term.dispose();

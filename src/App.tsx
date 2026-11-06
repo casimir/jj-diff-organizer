@@ -9,7 +9,6 @@ import { Handle } from "@/components/Handle";
 import { HistoryPane } from "@/components/HistoryPane";
 import { ErrorText } from "@/components/ui/ErrorText";
 import { RunningNotice } from "@/components/RunningNotice";
-import { SettingsDialog } from "@/components/SettingsDialog";
 import { TerminalPane } from "@/components/TerminalPane";
 import { WelcomePage } from "@/components/WelcomePage";
 import { handleKey } from "@/keys";
@@ -21,7 +20,6 @@ export function App() {
   const loaded = useSettingsStore((s) => s.loaded);
   const repoStatus = useRepoStore((s) => s.status);
   const repoFatal = useRepoStore((s) => s.fatal);
-  const settingsOpen = useUiStore((s) => s.settingsOpen);
   const [startupError, setStartupError] = useState<string | null>(null);
   const historyPanel = usePanelRef();
 
@@ -82,7 +80,6 @@ export function App() {
         </Group>
       </DragLayer>
       <RunningNotice />
-      {settingsOpen && <SettingsDialog />}
     </>
   );
 }

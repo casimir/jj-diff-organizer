@@ -13,7 +13,7 @@ pub enum Status {
 }
 
 /// Both sides of one file, rebuilt from a full-context git diff.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FilePair {
     pub path: String,
     pub old_path: Option<String>,

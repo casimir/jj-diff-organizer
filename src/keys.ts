@@ -1,7 +1,7 @@
 import { selectIsWorkingCopy, useGraphStore } from "@/store/graph";
 import { useUiStore } from "@/store/ui";
 
-const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
+export const IS_MAC = /Mac/.test(navigator.platform);
 export const MOD = IS_MAC ? "⌘" : "Ctrl";
 
 const hasMod = (e: KeyboardEvent) => (IS_MAC ? e.metaKey : e.ctrlKey);
@@ -46,7 +46,7 @@ export function handleKey(e: KeyboardEvent): boolean {
     return true;
   }
 
-  if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || ui.settingsOpen) return false;
+  if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return false;
   const graph = useGraphStore.getState();
   const reviewable = selectIsWorkingCopy(graph);
   if (e.key === "n") graph.moveChange(1);

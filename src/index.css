@@ -18,7 +18,6 @@
   --color-change-id: light-dark(var(--color-amber-700), var(--color-amber-400));
   --color-added: light-dark(var(--color-green-100), var(--color-green-950));
   --color-removed: light-dark(var(--color-red-100), var(--color-red-950));
-  --color-scrim: rgb(0 0 0 / 60%);
   --color-syntax-keyword: light-dark(var(--color-purple-700), var(--color-purple-300));
   --color-syntax-string: light-dark(var(--color-amber-700), var(--color-amber-300));
   --color-syntax-number: light-dark(var(--color-orange-700), var(--color-orange-300));
@@ -37,7 +36,6 @@
   --indicator-width: 2px;
   --opacity-inactive: 40%;
   --trash-size: calc(var(--spacing-target) * 3);
-  --z-dialog: 60;
   --z-overlay: 50;
   --z-sticky: 10;
   --z-trash: 20;

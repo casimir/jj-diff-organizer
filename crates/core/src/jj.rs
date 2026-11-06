@@ -18,7 +18,7 @@ pub const HUNK_TOOL: &str = "jjdo-hunk";
 const FULL_CONTEXT: &str = "1000000000";
 
 /// A jj invocation made by the app itself, as opposed to one typed in the shell.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Run {
     pub id: u64,
     pub command: String,
@@ -35,7 +35,7 @@ impl Run {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Change {
     pub change_id: String,
     pub short: String,
@@ -115,7 +115,7 @@ const READ_FLAGS: [&str; 4] = [
     "--ignore-working-copy",
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Jj {
     repo: Repo,
 }

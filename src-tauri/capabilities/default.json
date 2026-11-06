@@ -1,6 +1,6 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-set-theme", "store:default", "dialog:allow-open"]
+  "windows": ["*"],
+  "permissions": ["core:default", "core:window:allow-set-theme", "store:default", "dialog:allow-open", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
 }

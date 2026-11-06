@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 
 import { GraphRow } from "@/components/GraphRow";
-import { Button, ButtonVariant } from "@/components/ui/Button";
 import { ErrorText } from "@/components/ui/ErrorText";
 import { KeyBadge } from "@/components/ui/KeyBadge";
 import { StatusBar } from "@/components/ui/StatusBar";
@@ -11,7 +10,6 @@ import { layoutGraph } from "@/graph/layout";
 import { dropAttributes, useDropCandidate } from "@/hooks/useDropTarget";
 import { MOD } from "@/keys";
 import { useGraphStore } from "@/store/graph";
-import { useUiStore } from "@/store/ui";
 
 const selectChange = (changeId: string) => void useGraphStore.getState().select(changeId);
 
@@ -28,13 +26,6 @@ export function GraphPane() {
     <div data-pane="graph" tabIndex={-1} className="flex h-full flex-col outline-none">
       <div className="flex gap-2 border-b border-line p-1">
         <RevsetInput key={revset} initial={revset} />
-        <Button
-          variant={ButtonVariant.Ghost}
-          title="Settings"
-          onClick={() => useUiStore.getState().setSettingsOpen(true)}
-        >
-          ⚙
-        </Button>
       </div>
       {error && <ErrorText className="border-b border-danger">{error}</ErrorText>}
       <div

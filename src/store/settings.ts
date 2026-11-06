@@ -11,6 +11,7 @@ interface Settings {
 
 const DEFAULTS: Settings = { theme: null, recentRepos: [] };
 const STORE_FILE = "settings.json";
+const STORE_KEY = "settings";
 const MAX_RECENT_REPOS = 10;
 
 interface SettingsState extends Settings {
@@ -21,23 +22,31 @@ interface SettingsState extends Settings {
   forgetRepo: (root: string) => Promise<void>;
 }
 
+const withDefaults = (saved: Partial<Settings> | undefined): Settings => ({
+  theme: saved?.theme ?? DEFAULTS.theme,
+  recentRepos: saved?.recentRepos ?? DEFAULTS.recentRepos,
+});
+
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...DEFAULTS,
   loaded: false,
   init: async () => {
     const store = await load(STORE_FILE);
-    const saved = await store.get<Partial<Settings>>("settings");
-    const theme = saved?.theme ?? DEFAULTS.theme;
-    const recentRepos = saved?.recentRepos ?? DEFAULTS.recentRepos;
-    await getCurrentWindow().setTheme(theme);
-    set({ theme, recentRepos, loaded: true });
+    const settings = withDefaults(await store.get<Partial<Settings>>(STORE_KEY));
+    await getCurrentWindow().setTheme(settings.theme);
+    set({ ...settings, loaded: true });
+    await store.onKeyChange<Partial<Settings>>(STORE_KEY, (saved) => {
+      const changed = withDefaults(saved);
+      set(changed);
+      void getCurrentWindow().setTheme(changed.theme);
+    });
   },
   update: async (patch) => {
     set(patch);
     const { theme, recentRepos } = get();
     await getCurrentWindow().setTheme(theme);
     const store = await load(STORE_FILE);
-    await store.set("settings", { theme, recentRepos });
+    await store.set(STORE_KEY, { theme, recentRepos });
   },
   rememberRepo: (root) =>
     get().update({

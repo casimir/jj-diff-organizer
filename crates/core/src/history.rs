@@ -7,7 +7,7 @@ use crate::jj::{Op, Run};
 const MAX_FAILURES: usize = 200;
 
 /// A command of the app that failed, so it created no operation.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Failure {
     pub id: u64,
     pub started: u64,
@@ -30,7 +30,7 @@ impl From<&Run> for Failure {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Entry {
     pub id: String,
     pub time: u64,

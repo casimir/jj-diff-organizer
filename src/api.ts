@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 import type { Change, Entry, FileView, HunkRef, Marks, RepoInfo, Run } from "@/types";
 
@@ -30,9 +30,9 @@ export function ptyStart(
 export const ptyWrite = (data: string) => invoke<void>("pty_write", { data });
 export const ptyResize = (cols: number, rows: number) => invoke<void>("pty_resize", { cols, rows });
 
-export const onRepoChanged = (handler: () => void) => listen("repo-changed", handler);
+export const onRepoChanged = (handler: () => void) => getCurrentWebviewWindow().listen("repo-changed", handler);
 export const onReviewChanged = (handler: (changeIds: string[]) => void) =>
-  listen<string[]>("review-changed", (event) => handler(event.payload));
+  getCurrentWebviewWindow().listen<string[]>("review-changed", (event) => handler(event.payload));
 
 export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
