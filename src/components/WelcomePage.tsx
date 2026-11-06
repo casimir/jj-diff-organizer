@@ -1,3 +1,5 @@
+import { X } from "lucide-react";
+
 import { Button, ButtonVariant } from "@/components/ui/Button";
 import { ErrorText } from "@/components/ui/ErrorText";
 import { ListRow } from "@/components/ui/ListRow";
@@ -40,7 +42,7 @@ export function WelcomePage() {
                 aria-label={`Remove ${root} from recent repositories`}
                 onClick={() => void useSettingsStore.getState().forgetRepo(root)}
               >
-                ✕
+                <X className="size-4" />
               </Button>
             </ListRow>
           ))}
