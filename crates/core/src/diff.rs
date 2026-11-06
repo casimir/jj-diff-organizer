@@ -1,4 +1,4 @@
-use jj_diff::{DiffSpanStyle, SyntaxToken, compute_file_diff};
+use jj_diff::{DiffSpanStyle, SyntaxToken, build_diff_display_lines, compute_file_diff};
 use serde::Serialize;
 
 use crate::hunk::{hunk_digests, hunk_groups};
@@ -187,9 +187,9 @@ pub fn file_view(pair: FilePair) -> FileView {
     }
 
     let diff = compute_file_diff(&pair.path, &pair.old_content, &pair.content, false);
-    let groups = hunk_groups(diff.lines.iter().map(|l| l.is_changed()));
-    let lines = diff
-        .lines
+    let display_lines = build_diff_display_lines(&diff.lines);
+    let groups = hunk_groups(display_lines.iter().map(|l| l.is_changed()));
+    let lines = display_lines
         .iter()
         .zip(groups)
         .map(|(line, group)| LineView {
