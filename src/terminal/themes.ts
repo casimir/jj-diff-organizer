@@ -29,6 +29,13 @@ const SHARED = {
 } as const;
 
 export const TERMINAL_THEMES: Record<Theme, ITheme> = {
-  [Theme.Dark]: { ...SHARED, foreground: "#bbbbbb", background: "#000000", cursor: "#bbbbbb" },
+  [Theme.Dark]: {
+    ...SHARED,
+    blue: "#5c8dff",
+    brightBlue: "#8cb0ff",
+    foreground: "#bbbbbb",
+    background: "#000000",
+    cursor: "#bbbbbb",
+  },
   [Theme.Light]: { ...SHARED, foreground: "#000000", background: "#ffffff", cursor: "#000000" },
 };

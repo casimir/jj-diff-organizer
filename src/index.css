@@ -16,8 +16,8 @@
   --color-warning: light-dark(var(--color-amber-500), var(--color-amber-400));
   --color-special: light-dark(var(--color-purple-700), var(--color-purple-400));
   --color-change-id: light-dark(var(--color-amber-700), var(--color-amber-400));
-  --color-added: light-dark(var(--color-green-100), var(--color-green-950));
-  --color-removed: light-dark(var(--color-red-100), var(--color-red-950));
+  --color-added: light-dark(var(--color-green-100), color-mix(in oklab, var(--color-green-950), var(--color-green-900)));
+  --color-removed: light-dark(var(--color-red-100), color-mix(in oklab, var(--color-red-950), var(--color-red-900)));
   --color-syntax-keyword: light-dark(var(--color-purple-700), var(--color-purple-300));
   --color-syntax-string: light-dark(var(--color-amber-700), var(--color-amber-300));
   --color-syntax-number: light-dark(var(--color-orange-700), var(--color-orange-300));
@@ -31,7 +31,7 @@
 
 :root {
   color-scheme: light dark;
-  --diff-header-h: 1.75rem;
+  --diff-header-h: 2.25rem;
   --drop-color: var(--color-accent);
   --indicator-width: 2px;
   --opacity-inactive: 40%;

@@ -22,6 +22,17 @@ interface SettingsState extends Settings {
   forgetRepo: (root: string) => Promise<void>;
 }
 
+const applyTheme = async (theme: Theme | null) => {
+  const win = getCurrentWindow();
+  await win.setTheme(theme);
+  if (theme === null) {
+    const system = await win.theme();
+    if (system) {
+      await win.setTheme(system);
+    }
+  }
+};
+
 const withDefaults = (saved: Partial<Settings> | undefined): Settings => ({
   theme: saved?.theme ?? DEFAULTS.theme,
   recentRepos: saved?.recentRepos ?? DEFAULTS.recentRepos,
@@ -33,18 +44,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   init: async () => {
     const store = await load(STORE_FILE);
     const settings = withDefaults(await store.get<Partial<Settings>>(STORE_KEY));
-    await getCurrentWindow().setTheme(settings.theme);
+    await applyTheme(settings.theme);
     set({ ...settings, loaded: true });
     await store.onKeyChange<Partial<Settings>>(STORE_KEY, (saved) => {
       const changed = withDefaults(saved);
       set(changed);
-      void getCurrentWindow().setTheme(changed.theme);
+      void applyTheme(changed.theme);
     });
   },
   update: async (patch) => {
     set(patch);
     const { theme, recentRepos } = get();
-    await getCurrentWindow().setTheme(theme);
+    await applyTheme(theme);
     const store = await load(STORE_FILE);
     await store.set(STORE_KEY, { theme, recentRepos });
   },
