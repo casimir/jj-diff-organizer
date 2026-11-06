@@ -4,6 +4,7 @@ import * as api from "@/api";
 import { describeAction, Zone, type DragSource, type DropAction, type DropEffect } from "@/graph/drop";
 import { useGraphStore } from "@/store/graph";
 import { useHistoryStore } from "@/store/history";
+import { useRunStore } from "@/store/run";
 import { useUiStore } from "@/store/ui";
 
 /** Where the pointer grabbed the source, relative to its top-left corner. */
@@ -58,8 +59,10 @@ export const useDragStore = create<DragState>((set, get) => ({
     if (a.kind === "insert") return useUiStore.getState().insertIntoTerminal(`${a.text} `);
 
     try {
-      const run = await api.runJj(a.args, a.hunk);
-      if (run.exit_code !== 0) useHistoryStore.getState().select(`failure-${run.id}`);
+      const run = await useRunStore.getState().run(a.args, a.hunk);
+      if (run.exit_code !== 0) {
+        useHistoryStore.getState().select(`failure-${run.id}`);
+      }
     } catch (e) {
       useGraphStore.setState({ error: api.errorMessage(e) });
     }

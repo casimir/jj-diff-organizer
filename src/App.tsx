@@ -8,6 +8,7 @@ import { GraphPane } from "@/components/GraphPane";
 import { Handle } from "@/components/Handle";
 import { HistoryPane } from "@/components/HistoryPane";
 import { ErrorText } from "@/components/ui/ErrorText";
+import { RunningNotice } from "@/components/RunningNotice";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { TerminalPane } from "@/components/TerminalPane";
 import { WelcomePage } from "@/components/WelcomePage";
@@ -80,6 +81,7 @@ export function App() {
           </Panel>
         </Group>
       </DragLayer>
+      <RunningNotice />
       {settingsOpen && <SettingsDialog />}
     </>
   );

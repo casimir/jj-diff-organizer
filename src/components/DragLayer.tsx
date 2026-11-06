@@ -114,7 +114,7 @@ function DragPreview() {
           label(source)
         ) : (
           <>
-            <span className="text-muted">$</span> {command}
+            <span className="text-command">$</span> {command}
           </>
         )}
       </div>

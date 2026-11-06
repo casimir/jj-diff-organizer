@@ -10,6 +10,7 @@
   --color-dim: light-dark(var(--color-zinc-600), var(--color-zinc-300));
   --color-muted: var(--color-zinc-500);
   --color-accent: light-dark(var(--color-sky-600), var(--color-sky-400));
+  --color-command: light-dark(var(--color-teal-600), var(--color-teal-400));
   --color-danger: light-dark(var(--color-red-600), var(--color-red-400));
   --color-success: light-dark(var(--color-green-600), var(--color-green-400));
   --color-warning: light-dark(var(--color-amber-500), var(--color-amber-400));
