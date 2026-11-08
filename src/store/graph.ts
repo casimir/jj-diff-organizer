@@ -35,6 +35,7 @@ interface GraphState {
   moveCursor: (step: 1 | -1, onlyUnreviewed: boolean) => void;
   toggleHunk: () => Promise<void>;
   toggleFile: (path?: string) => Promise<void>;
+  reportDetailsError: (e: unknown) => void;
   refresh: () => Promise<void>;
   reloadMarks: (changeIds: string[]) => Promise<void>;
 }
@@ -222,6 +223,8 @@ export const useGraphStore = create<GraphState>((set, get) => {
       const marked = get().marks[file.path] ?? [];
       await toggle(file, file.digests, !file.digests.every((d) => marked.includes(d)));
     },
+
+    reportDetailsError: (e) => set({ detailsError: api.errorMessage(e) }),
 
     refresh: async () => {
       const seq = ++latestRefresh;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 
 import { ReviewDot } from "@/components/ReviewDot";
+import { CopyButton } from "@/components/ui/CopyButton";
 import type { DragSource } from "@/graph/drop";
 import { useDragSource } from "@/hooks/useDragSource";
 import { hunkState, segments } from "@/review/hunks";
@@ -136,6 +137,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
     <section>
       <div className="sticky top-0 z-(--z-sticky) flex h-(--diff-header-h) items-center border-b border-line bg-subtle px-2 font-sans">
         <FileTitle file={file} />
+        <CopyButton text={file.path} label="Copy path" onError={useGraphStore.getState().reportDetailsError} />
       </div>
       {blocks.length === 0 && <div className="px-2 py-1 text-dim">No content changes</div>}
       {blocks.map((block, i) =>
