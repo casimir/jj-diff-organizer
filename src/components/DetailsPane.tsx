@@ -1,4 +1,4 @@
-import { useRef, type MouseEvent } from "react";
+import { useRef } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
 import { DiffView } from "@/components/DiffView";
@@ -12,7 +12,7 @@ import { StatusBar } from "@/components/ui/StatusBar";
 import type { DragSource } from "@/graph/drop";
 import { useDragSource } from "@/hooks/useDragSource";
 import { fileState } from "@/review/hunks";
-import { SelectMode, selectIsWorkingCopy, selectSelectedChange, useGraphStore } from "@/store/graph";
+import { selectIsWorkingCopy, selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, type FileView } from "@/types";
 
 const STATUS: Record<FileStatus, { letter: string; className: string }> = {
@@ -21,9 +21,6 @@ const STATUS: Record<FileStatus, { letter: string; className: string }> = {
   [FileStatus.Deleted]: { letter: "D", className: "text-danger" },
   [FileStatus.Renamed]: { letter: "R", className: "text-special" },
 };
-
-const selectMode = (e: MouseEvent): SelectMode =>
-  e.shiftKey ? SelectMode.Range : e.metaKey || e.ctrlKey ? SelectMode.Toggle : SelectMode.Replace;
 
 function FileRow({ file, selected, reviewable }: {
   file: FileView;
@@ -46,7 +43,7 @@ function FileRow({ file, selected, reviewable }: {
     <ListRow
       ref={ref}
       selected={selected}
-      onClick={(e) => useGraphStore.getState().selectFile(file.path, selectMode(e))}
+      onClick={() => useGraphStore.getState().selectFile(file.path)}
       {...dragAttributes}
       className="flex items-center gap-2 px-2 py-1"
     >
@@ -77,11 +74,11 @@ export function DetailsPane() {
 }
 
 function Details() {
+  const selectedId = useGraphStore((s) => s.selectedId);
   const files = useGraphStore((s) => s.files);
-  const selectedPaths = useGraphStore((s) => s.selectedPaths);
+  const selectedPath = useGraphStore((s) => s.selectedPath);
   const detailsError = useGraphStore((s) => s.detailsError);
   const reviewable = useGraphStore(selectIsWorkingCopy);
-  const shown = files.filter((f) => selectedPaths.includes(f.path));
 
   return (
     <div className="flex h-full flex-col">
@@ -94,7 +91,7 @@ function Details() {
                 <FileRow
                   key={file.path}
                   file={file}
-                  selected={selectedPaths.includes(file.path)}
+                  selected={file.path === selectedPath}
                   reviewable={reviewable}
                 />
               ))}
@@ -102,19 +99,16 @@ function Details() {
           </Panel>
           <Handle orientation="horizontal" />
           <Panel minSize="20%">
-            <DiffView files={shown} reviewable={reviewable} />
+            <DiffView key={selectedId} files={files} reviewable={reviewable} />
           </Panel>
         </Group>
       </div>
       <StatusBar className="flex gap-3">
         <span>
-          <KeyBadge>j</KeyBadge> <KeyBadge>k</KeyBadge> navigate files
+          <KeyBadge>j</KeyBadge> <KeyBadge>k</KeyBadge> jump to file
         </span>
         <span>
           <KeyBadge>[</KeyBadge> <KeyBadge>]</KeyBadge> navigate hunks
-        </span>
-        <span>
-          <KeyBadge>a</KeyBadge> select all
         </span>
         {reviewable && (
           <>

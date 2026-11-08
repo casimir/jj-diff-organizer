@@ -134,7 +134,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
     [file],
   );
   return (
-    <section>
+    <section data-path={file.path}>
       <div className="sticky top-0 z-(--z-sticky) flex h-(--diff-header-h) items-center border-b border-line bg-subtle px-2 font-sans">
         <FileTitle file={file} />
         <CopyButton text={file.path} label="Copy path" onError={useGraphStore.getState().reportDetailsError} />
@@ -157,8 +157,28 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
 }
 
 export function DiffView({ files, reviewable }: { files: FileView[]; reviewable: boolean }) {
+  const container = useRef<HTMLDivElement>(null);
+  const scrollRequest = useGraphStore((s) => s.scrollRequest);
+  const sections = () => Array.from(container.current?.children ?? []) as HTMLElement[];
+
+  useEffect(() => {
+    if (scrollRequest) sections().find((el) => el.dataset.path === scrollRequest.path)?.scrollIntoView({ block: "start" });
+  }, [scrollRequest]);
+
+  const onScroll = () => {
+    const root = container.current;
+    if (!root) return;
+
+    const top = root.getBoundingClientRect().top;
+    const current = sections().filter((el) => el.getBoundingClientRect().top - top <= 1).at(-1)?.dataset.path;
+    const { selectedPath, spyFile } = useGraphStore.getState();
+    const atEnd = root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
+    const selectedVisible = sections().some((el) => el.dataset.path === selectedPath && el.getBoundingClientRect().bottom > top);
+    if (current && current !== selectedPath && !(atEnd && selectedVisible)) spyFile(current);
+  };
+
   return (
-    <div className="h-full overflow-auto font-mono">
+    <div ref={container} onScroll={onScroll} className="h-full overflow-auto font-mono">
       {files.map((file) => (
         <FileDiff key={file.path} file={file} reviewable={reviewable} />
       ))}

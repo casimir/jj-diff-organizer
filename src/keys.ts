@@ -58,7 +58,6 @@ export function handleKey(e: KeyboardEvent): boolean {
   else if (e.key === "k") graph.moveFile(-1);
   else if (e.key === "]") graph.moveCursor(1, false);
   else if (e.key === "[") graph.moveCursor(-1, false);
-  else if (e.key === "a") graph.selectAllFiles();
   else if (reviewable && e.key === "u") graph.moveCursor(1, true);
   else if (e.key === " ") {
     if (reviewable) void graph.toggleHunk();

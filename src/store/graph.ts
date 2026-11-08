@@ -4,13 +4,6 @@ import * as api from "@/api";
 import { HunkState, nextHunk, samePos, type HunkPos } from "@/review/hunks";
 import type { Change, FileView, Marks, RepoInfo } from "@/types";
 
-export const SelectMode = {
-  Replace: "replace",
-  Toggle: "toggle",
-  Range: "range",
-} as const;
-export type SelectMode = (typeof SelectMode)[keyof typeof SelectMode];
-
 interface GraphState {
   root: string;
   revset: string;
@@ -19,9 +12,8 @@ interface GraphState {
   selectedId: string | null;
   files: FileView[];
   marks: Marks;
-  /** The file the review keys act on; always one of `selectedPaths`, whose diffs are shown together. */
   selectedPath: string | null;
-  selectedPaths: string[];
+  scrollRequest: { path: string } | null;
   cursor: HunkPos | null;
   detailsError: string | null;
   init: (info: RepoInfo) => Promise<void>;
@@ -29,8 +21,8 @@ interface GraphState {
   select: (changeId: string) => Promise<void>;
   moveChange: (step: 1 | -1) => void;
   moveFile: (step: 1 | -1) => void;
-  selectFile: (path: string, mode?: SelectMode) => void;
-  selectAllFiles: () => void;
+  selectFile: (path: string) => void;
+  spyFile: (path: string) => void;
   setCursor: (pos: HunkPos) => void;
   moveCursor: (step: 1 | -1, onlyUnreviewed: boolean) => void;
   toggleHunk: () => Promise<void>;
@@ -58,7 +50,7 @@ const EMPTY_DETAILS: Partial<GraphState> = {
   files: [],
   marks: {},
   selectedPath: null,
-  selectedPaths: [],
+  scrollRequest: null,
   cursor: null,
   detailsError: null,
 };
@@ -69,17 +61,14 @@ export const useGraphStore = create<GraphState>((set, get) => {
     try {
       const [files, marks] = await Promise.all([api.show(changeId), api.marks(changeId)]);
       if (seq !== latestDetails) return;
-      const { selectedPath, selectedPaths, cursor } = get();
-      const kept = files.filter((f) => selectedPaths.includes(f.path)).map((f) => f.path);
-      const paths = kept.length > 0 ? kept : files.slice(0, 1).map((f) => f.path);
-      const file = files.find((f) => f.path === selectedPath && paths.includes(f.path)) ?? files.find((f) => f.path === paths[0]);
+      const { selectedPath, cursor } = get();
+      const file = files.find((f) => f.path === selectedPath) ?? files[0];
       const stillThere = cursor && file?.path === cursor.path && cursor.group < file.digests.length;
       set({
         files,
         marks,
         detailsError: null,
         selectedPath: file?.path ?? null,
-        selectedPaths: paths,
         cursor: stillThere ? cursor : firstHunk(file),
       });
     } catch (e) {
@@ -137,7 +126,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
     files: [],
     marks: {},
     selectedPath: null,
-    selectedPaths: [],
+    scrollRequest: null,
     cursor: null,
     detailsError: null,
 
@@ -173,41 +162,24 @@ export const useGraphStore = create<GraphState>((set, get) => {
       if (next) get().selectFile(next.path);
     },
 
-    selectFile: (path, mode = SelectMode.Replace) => {
-      const { files, selectedPath, selectedPaths } = get();
-      const order = files.map((f) => f.path);
-      if (!order.includes(path)) return;
-      let paths = [path];
-      if (mode === SelectMode.Range && selectedPath) {
-        const [from, to] = [order.indexOf(selectedPath), order.indexOf(path)].sort((a, b) => a - b);
-        paths = order.slice(from, to + 1);
-      } else if (mode === SelectMode.Toggle) {
-        paths = selectedPaths.includes(path)
-          ? selectedPaths.filter((p) => p !== path)
-          : order.filter((p) => p === path || selectedPaths.includes(p));
-        if (paths.length === 0) paths = [path];
-      }
-      const active = paths.includes(path) ? path : paths[paths.length - 1];
-      const file = files.find((f) => f.path === active);
-      set({
-        selectedPaths: paths,
-        selectedPath: active,
-        cursor: firstHunk(file),
-      });
+    selectFile: (path) => {
+      const file = get().files.find((f) => f.path === path);
+      if (!file) return;
+
+      set({ selectedPath: path, cursor: firstHunk(file), scrollRequest: { path } });
     },
 
-    selectAllFiles: () => set((s) => ({ selectedPaths: s.files.map((f) => f.path) })),
+    spyFile: (path) => set({ selectedPath: path }),
 
     setCursor: (cursor) => set({ cursor, selectedPath: cursor.path }),
 
     moveCursor: (step, onlyUnreviewed) => {
-      const { files, marks, cursor, selectedPaths } = get();
+      const { files, marks, cursor } = get();
       const wanted = onlyUnreviewed ? (s: HunkState) => s !== HunkState.Reviewed : undefined;
-      const several = selectedPaths.length > 1;
-      const scope = several ? files.filter((f) => selectedPaths.includes(f.path)) : files;
-      const next = nextHunk(scope, marks, cursor, step, wanted);
+      const next = nextHunk(files, marks, cursor, step, wanted);
       if (!next || samePos(next, cursor)) return;
-      set({ cursor: next, selectedPath: next.path, selectedPaths: several ? selectedPaths : [next.path] });
+
+      set({ cursor: next, selectedPath: next.path });
     },
 
     toggleHunk: async () => {
@@ -217,7 +189,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
       if (file && digest) await toggle(file, [digest], !(marks[file.path] ?? []).includes(digest));
     },
 
-    toggleFile: async (path = get().selectedPath ?? undefined) => {
+    toggleFile: async (path = get().cursor?.path ?? get().selectedPath ?? undefined) => {
       const file = get().files.find((f) => f.path === path);
       if (!file) return;
       const marked = get().marks[file.path] ?? [];
