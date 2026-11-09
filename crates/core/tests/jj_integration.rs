@@ -70,6 +70,10 @@ fn squash_hunk(dir: &Path, digest: &str) -> std::process::Output {
 }
 
 fn squash_hunk_into(dir: &Path, into: &str, digest: &str) -> std::process::Output {
+    squash_hunk_to(dir, &["--into", into, "--use-destination-message"], digest)
+}
+
+fn squash_hunk_to(dir: &Path, destination: &[&str], digest: &str) -> std::process::Output {
     let probe = env!("CARGO_BIN_EXE_hunk-probe");
     Command::new("jj")
         .args(["--no-pager", "--color=never"])
@@ -79,16 +83,9 @@ fn squash_hunk_into(dir: &Path, into: &str, digest: &str) -> std::process::Outpu
             "a.txt",
             digest,
         ))
-        .args([
-            "squash",
-            "--from",
-            "source",
-            "--into",
-            into,
-            "--use-destination-message",
-            "--tool",
-            HUNK_TOOL,
-        ])
+        .args(["squash", "--from", "source"])
+        .args(destination)
+        .args(["--tool", HUNK_TOOL])
         .current_dir(dir)
         .env("JJ_USER", "test")
         .env("JJ_EMAIL", "test@example.com")
@@ -174,6 +171,44 @@ fn squash_tool_moves_a_hunk_from_a_parent_into_the_working_copy() {
     assert_eq!(
         jj_ok(p, &["file", "show", "-r", "@", "a.txt"]),
         numbered(&[(2, "edited 2"), (18, "edited 18")])
+    );
+    assert_eq!(
+        jj_ok(p, &["file", "show", "-r", "source", "a.txt"]),
+        numbered(&[(18, "edited 18")])
+    );
+}
+
+#[test]
+fn squash_tool_moves_only_the_selected_hunk_into_a_new_change_before_the_target() {
+    let (dir, old, new) = two_hunk_repo();
+    let p = dir.path();
+    let digests = hunk_digests(&old, &new);
+
+    let out = squash_hunk_to(p, &["--insert-before", "target"], &digests[0]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let inserted = jj_ok(
+        p,
+        &[
+            "log",
+            "--no-graph",
+            "-r",
+            "target- & children(base)",
+            "-T",
+            "change_id",
+        ],
+    );
+    assert!(
+        !inserted.is_empty(),
+        "no new change between base and target"
+    );
+    assert_eq!(
+        jj_ok(p, &["file", "show", "-r", "target-", "a.txt"]),
+        numbered(&[(2, "edited 2")])
     );
     assert_eq!(
         jj_ok(p, &["file", "show", "-r", "source", "a.txt"]),

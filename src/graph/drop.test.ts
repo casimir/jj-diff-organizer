@@ -106,6 +106,27 @@ describe("dropArgs for review items", () => {
     ]);
   });
 
+  it("moves a file or hunk into a new change next to the target on its edges", () => {
+    expect(dropArgs(file, y, Zone.Above, false)).toEqual([
+      "squash", "--from", "x", "--insert-after", "y", "src/a.ts",
+    ]);
+    expect(dropArgs(hunk, y, Zone.Below, false)).toEqual([
+      "squash", "--from", "x", "--insert-before", "y", "--tool", HUNK_TOOL, "src/a.ts",
+    ]);
+  });
+
+  it("splits a file or hunk out of its own change on the edges, not onto it", () => {
+    expect(dropArgs(file, x, Zone.Above, false)).toEqual(["squash", "--from", "x", "--insert-after", "x", "src/a.ts"]);
+    expect(dropArgs(hunk, x, Zone.Below, false)).not.toBeNull();
+    expect(dropArgs(file, x, Zone.Onto, false)).toBeNull();
+  });
+
+  it("inserts above an immutable target but never below it", () => {
+    const immutable = change("m", { immutable: true });
+    expect(dropArgs(file, immutable, Zone.Above, false)).not.toBeNull();
+    expect(dropArgs(file, immutable, Zone.Below, false)).toBeNull();
+  });
+
   it("moves into the working copy from another change", () => {
     expect(dropArgs(hunk, change("w", { wc: true }), Zone.Onto, false)).not.toBeNull();
   });

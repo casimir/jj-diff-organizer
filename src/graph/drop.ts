@@ -31,6 +31,28 @@ function filesetPath(path: string): string {
   return SAFE_PATH.test(path) ? path : `root-file:"${path.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
+const insertFlag = (zone: Zone): string => (zone === Zone.Above ? "--insert-after" : "--insert-before");
+
+type ReviewSource = Extract<DragSource, { kind: "file" | "hunk" }>;
+
+function squashArgs(source: ReviewSource, target: Change, zone: Zone): string[] | null {
+  const { from } = source;
+  if (from.immutable) return null;
+
+  if (zone === Zone.Onto && from.change_id === target.change_id) return null;
+
+  if (zone !== Zone.Above && target.immutable) return null;
+
+  const destination =
+    zone === Zone.Onto ? ["--into", target.short, "--use-destination-message"] : [insertFlag(zone), target.short];
+  if (source.kind === "hunk") {
+    return ["squash", "--from", from.short, ...destination, "--tool", HUNK_TOOL, filesetPath(source.path)];
+  }
+
+  const paths = source.renamedFrom ? [source.renamedFrom, source.path] : [source.path];
+  return ["squash", "--from", from.short, ...destination, ...paths.map(filesetPath)];
+}
+
 export function dropArgs(
   source: DragSource,
   target: Change,
@@ -45,8 +67,7 @@ export function dropArgs(
         if (source.change.immutable || target.immutable) return null;
         return ["squash", "--from", source.change.short, "--into", target.short, "--use-destination-message"];
       }
-      const placement = zone === Zone.Above ? "--insert-after" : "--insert-before";
-      return ["rebase", shift ? "--source" : "--revisions", source.change.short, placement, target.short];
+      return ["rebase", shift ? "--source" : "--revisions", source.change.short, insertFlag(zone), target.short];
     }
     case "bookmark":
       if (target.bookmarks.includes(source.name)) return null;
@@ -54,22 +75,9 @@ export function dropArgs(
     case "wc":
       if (source.change.change_id === target.change_id) return null;
       return ["edit", target.short];
-    case "file": {
-      if (source.from.change_id === target.change_id || source.from.immutable || target.immutable) return null;
-
-      const paths = source.renamedFrom ? [source.renamedFrom, source.path] : [source.path];
-      return [
-        "squash", "--from", source.from.short, "--into", target.short, "--use-destination-message",
-        ...paths.map(filesetPath),
-      ];
-    }
+    case "file":
     case "hunk":
-      if (source.from.change_id === target.change_id || source.from.immutable || target.immutable) return null;
-
-      return [
-        "squash", "--from", source.from.short, "--into", target.short, "--use-destination-message",
-        "--tool", HUNK_TOOL, filesetPath(source.path),
-      ];
+      return squashArgs(source, target, zone);
   }
 }
 
