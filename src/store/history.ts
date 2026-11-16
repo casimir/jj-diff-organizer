@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import * as api from "@/api";
+import { errorMessage } from "@/error";
 import type { Entry } from "@/types";
 
 interface HistoryState {
@@ -24,7 +25,7 @@ export const useHistoryStore = create<HistoryState>((set) => ({
       const entries = await api.history();
       if (seq === latestRefresh) set({ entries, error: null });
     } catch (e) {
-      if (seq === latestRefresh) set({ error: api.errorMessage(e) });
+      if (seq === latestRefresh) set({ error: errorMessage(e) });
     }
   },
 }));

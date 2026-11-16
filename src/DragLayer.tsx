@@ -1,12 +1,18 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { DragDropProvider, DragOverlay, useDragDropManager } from "@dnd-kit/react";
 
-import { DRAG_LABEL } from "@/graph/collision";
-import { isDestructive, PreviewState, Zone, zoneAt, type DragSource, type DropEffect } from "@/graph/drop";
-import { selectAction, selectCommand, useDragStore } from "@/store/drag";
+import { DRAG_LABEL } from "@/core/dnd/collision";
+import type { Command } from "@/core/command";
+import { Slot, slotAt, type DropData } from "@/core/dnd/model";
+import { labelOf, type DragData, type DragObject } from "@/core/dnd/objects";
+import { selectCommand, selectOutcome, selectTone, useDragStore } from "@/store/drag";
+import { execute } from "@/store/execute";
+import { useTerminalStore } from "@/store/terminal";
+
+const PreviewState = { Object: "object", Command: "command" } as const;
 
 function useTrackShiftWhileDragging() {
-  const dragging = useDragStore((s) => s.source !== null);
+  const dragging = useDragStore((s) => s.object !== null);
   useEffect(() => {
     if (!dragging) return;
     // WebKitGTK can leave `shiftKey` set on the keyup of Shift itself.
@@ -27,7 +33,7 @@ function useTrackShiftWhileDragging() {
 
 function CancelOnRightClick() {
   const manager = useDragDropManager();
-  const dragging = useDragStore((s) => s.source !== null);
+  const dragging = useDragStore((s) => s.object !== null);
   useEffect(() => {
     if (!dragging || !manager) return;
 
@@ -51,31 +57,13 @@ function CancelOnRightClick() {
   return null;
 }
 
-function label(source: DragSource): string {
-  switch (source.kind) {
-    case "change":
-      return source.change.short;
-    case "bookmark":
-      return source.name;
-    case "wc":
-      return "@";
-    case "file":
-      return source.path;
-    case "hunk":
-      return `hunk of ${source.path}`;
-  }
-}
-
 function DragPreview() {
-  const source = useDragStore((s) => s.source);
+  const object = useDragStore((s) => s.object);
   const grab = useDragStore((s) => s.grab);
   const command = useDragStore(selectCommand);
-  const destructive = useDragStore((s) => {
-    const action = selectAction(s);
-    return action !== null && isDestructive(action);
-  });
+  const tone = useDragStore(selectTone);
   const box = useRef<HTMLDivElement>(null);
-  const dragging = source !== null;
+  const dragging = object !== null;
 
   useEffect(() => {
     if (!dragging) return;
@@ -100,18 +88,18 @@ function DragPreview() {
     return () => cancelAnimationFrame(frame);
   }, [dragging, grab]);
 
-  if (!source) return null;
+  if (!object) return null;
 
   return (
     <div ref={box} style={{ translate: `${grab.x}px ${grab.y}px` }}>
       <div
         {...{ [DRAG_LABEL]: "" }}
         data-preview={command === null ? PreviewState.Object : PreviewState.Command}
-        data-destructive={destructive || undefined}
+        data-tone={tone ?? undefined}
         className="w-max rounded bg-canvas px-2 py-1 whitespace-nowrap shadow ring-1 ring-(color:--preview-ring)"
       >
         {command === null ? (
-          label(source)
+          labelOf(object)
         ) : (
           <>
             <span className="text-command">$</span> {command}
@@ -122,40 +110,52 @@ function DragPreview() {
   );
 }
 
-type Entity = { data: Record<string, any> } | null | undefined;
+type Entity<T> = { data: Partial<T> } | null | undefined;
 
-const sourceOf = (draggable: Entity): DragSource | null => draggable?.data.source ?? null;
-const effectOf = (droppable: Entity): DropEffect | null => droppable?.data.effect ?? null;
+const objectOf = (draggable: Entity<DragData>): DragObject | null => draggable?.data.object ?? null;
+
+function dropDataOf(droppable: Entity<DropData>): DropData | null {
+  const { handler, group, tone } = droppable?.data ?? {};
+  return handler && group && tone ? { handler, group, tone } : null;
+}
+
+function drop(command: Command) {
+  if (command.kind === "insert") return useTerminalStore.getState().insertIntoTerminal(`${command.text} `);
+
+  void execute(command);
+}
 
 export function DragLayer({ children }: { children: ReactNode }) {
   useTrackShiftWhileDragging();
   return (
     <DragDropProvider
       onDragStart={({ operation }) => {
-        const source = sourceOf(operation.source);
-        if (!source) return;
+        const object = objectOf(operation.source);
+        if (!object) return;
 
         const shift = operation.activatorEvent instanceof PointerEvent && operation.activatorEvent.shiftKey;
         const rect = operation.source?.element?.getBoundingClientRect();
         const { x, y } = operation.position.initial;
         const grab = rect ? { x: x - rect.left, y: y - rect.top } : { x: 0, y: 0 };
-        useDragStore.getState().start(source, shift, grab);
+        useDragStore.getState().start(object, shift, grab);
       }}
       onDragMove={({ operation }) => {
         const { target } = operation;
-        if (!target) return useDragStore.getState().over(null, null, Zone.Onto);
+        const data = dropDataOf(target);
+        if (!target || !data) return useDragStore.getState().over(null, Slot.Onto);
 
         const rect = target.shape?.boundingRectangle;
         if (!rect) return;
 
         useDragStore
           .getState()
-          .over(String(target.id), effectOf(target), zoneAt(operation.position.current.y, rect.top, rect.height));
+          .over({ id: String(target.id), ...data }, slotAt(operation.position.current.y, rect.top, rect.height));
       }}
       onDragEnd={({ canceled }) => {
-        const { drop, end } = useDragStore.getState();
-        if (!canceled) void drop();
-        end();
+        const state = useDragStore.getState();
+        const outcome = canceled ? null : selectOutcome(state);
+        if (outcome) drop(outcome.command);
+        state.end();
       }}
     >
       {children}

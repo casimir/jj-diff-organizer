@@ -1,18 +1,9 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { load } from "@tauri-apps/plugin-store";
 import { create } from "zustand";
 
-import { IS_MAC } from "@/platform";
-import { Theme } from "@/types";
-
-interface Settings {
-  theme: Theme | null;
-  recentRepos: string[];
-}
+import * as api from "@/api";
+import type { Settings } from "@/types";
 
 const DEFAULTS: Settings = { theme: null, recentRepos: [] };
-const STORE_FILE = "settings.json";
-const STORE_KEY = "settings";
 const MAX_RECENT_REPOS = 10;
 
 interface SettingsState extends Settings {
@@ -23,17 +14,6 @@ interface SettingsState extends Settings {
   forgetRepo: (root: string) => Promise<void>;
 }
 
-const applyTheme = async (theme: Theme | null) => {
-  const win = getCurrentWindow();
-  await win.setTheme(theme);
-  if (theme === null && !IS_MAC) {
-    const system = await win.theme();
-    if (system) {
-      await win.setTheme(system);
-    }
-  }
-};
-
 const withDefaults = (saved: Partial<Settings> | undefined): Settings => ({
   theme: saved?.theme ?? DEFAULTS.theme,
   recentRepos: saved?.recentRepos ?? DEFAULTS.recentRepos,
@@ -43,22 +23,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...DEFAULTS,
   loaded: false,
   init: async () => {
-    const store = await load(STORE_FILE);
-    const settings = withDefaults(await store.get<Partial<Settings>>(STORE_KEY));
-    await applyTheme(settings.theme);
+    const settings = withDefaults(await api.loadSettings());
+    await api.applyTheme(settings.theme);
     set({ ...settings, loaded: true });
-    await store.onKeyChange<Partial<Settings>>(STORE_KEY, (saved) => {
+    await api.onSettingsChanged((saved) => {
       const changed = withDefaults(saved);
       set(changed);
-      void applyTheme(changed.theme);
+      void api.applyTheme(changed.theme);
     });
   },
   update: async (patch) => {
     set(patch);
     const { theme, recentRepos } = get();
-    await applyTheme(theme);
-    const store = await load(STORE_FILE);
-    await store.set(STORE_KEY, { theme, recentRepos });
+    await api.applyTheme(theme);
+    await api.saveSettings({ theme, recentRepos });
   },
   rememberRepo: (root) =>
     get().update({

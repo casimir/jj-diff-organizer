@@ -50,7 +50,7 @@ body {
   box-shadow: inset 0 0 0 var(--indicator-width) var(--color-accent);
 }
 
-[data-destructive] {
+[data-tone="danger"] {
   --drop-color: var(--color-danger);
 }
 
@@ -68,17 +68,35 @@ body {
   outline-offset: calc(var(--indicator-width) * -1);
 }
 
+[data-drop] {
+  --drop-tint: color-mix(in srgb, var(--drop-color) 15%, transparent);
+  --drop-line: linear-gradient(var(--drop-color) 0 0);
+}
+
 [data-drop="onto"] {
   outline: var(--indicator-width) solid var(--drop-color);
   outline-offset: calc(var(--indicator-width) * -1);
+  background-image: linear-gradient(var(--drop-tint) 0 0);
+}
+
+[data-drop="above"],
+[data-drop="below"] {
+  background-image:
+    linear-gradient(var(--drop-tint) 0 0), var(--drop-line), var(--drop-line), var(--drop-line);
+  background-repeat: no-repeat;
+  background-size:
+    100% 100%,
+    100% var(--indicator-width),
+    var(--indicator-width) 50%,
+    var(--indicator-width) 50%;
 }
 
 [data-drop="above"] {
-  box-shadow: inset 0 var(--indicator-width) 0 var(--drop-color);
+  background-position: 0 0, 0 0, 0 0, 100% 0;
 }
 
 [data-drop="below"] {
-  box-shadow: inset 0 calc(var(--indicator-width) * -1) 0 var(--drop-color);
+  background-position: 0 0, 0 100%, 0 100%, 100% 100%;
 }
 
 [data-preview="object"] {
@@ -88,7 +106,6 @@ body {
 [data-preview="command"] {
   --preview-ring: var(--drop-color);
   font-family: var(--font-mono);
-  background-image: linear-gradient(color-mix(in srgb, var(--drop-color) 20%, transparent) 0 0);
 }
 
 [data-row]:hover {

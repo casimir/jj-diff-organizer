@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import * as api from "@/api";
-import { displayCommand } from "@/graph/drop";
+import { displayCommand } from "@/core/jj";
 import type { HunkRef, Run } from "@/types";
 
 interface RunState {

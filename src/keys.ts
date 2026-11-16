@@ -1,6 +1,6 @@
 import { IS_MAC } from "@/platform";
 import { selectIsWorkingCopy, useGraphStore } from "@/store/graph";
-import { useUiStore } from "@/store/ui";
+import { useTerminalStore } from "@/store/terminal";
 
 export const MOD = IS_MAC ? "⌘" : "Ctrl";
 
@@ -27,22 +27,21 @@ const FOCUS_KEY: Record<string, Pane> = {
 };
 
 function focusPane(pane: Pane) {
-  const ui = useUiStore.getState();
-  if (pane === "terminal") return ui.focusTerminal();
-  if (pane === "history") ui.showHistory();
+  const terminal = useTerminalStore.getState();
+  if (pane === "terminal") return terminal.focusTerminal();
   document.querySelector<HTMLElement>(`[data-pane="${pane}"]`)?.focus();
 }
 
 /** App-wide keys, run before anything else sees the event. Returns whether the key was handled. */
 export function handleKey(e: KeyboardEvent): boolean {
-  const ui = useUiStore.getState();
+  const terminal = useTerminalStore.getState();
 
   if (hasMod(e) && e.shiftKey && e.code === "KeyM") {
-    ui.toggleShellMaximized();
+    terminal.toggleMaximized();
     return true;
   }
   if (hasMod(e) && !e.shiftKey && !e.altKey && e.code in FOCUS_KEY) {
-    if (!ui.shellMaximized) focusPane(FOCUS_KEY[e.code]);
+    if (!terminal.maximized) focusPane(FOCUS_KEY[e.code]);
     return true;
   }
 

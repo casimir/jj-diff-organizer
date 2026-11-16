@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 
-import { GraphRow } from "@/components/GraphRow";
-import { ErrorText } from "@/components/ui/ErrorText";
-import { KeyBadge } from "@/components/ui/KeyBadge";
-import { StatusBar } from "@/components/ui/StatusBar";
-import { TextInput } from "@/components/ui/TextInput";
-import { changeEffect, DropState } from "@/graph/drop";
-import { layoutGraph } from "@/graph/layout";
-import { dropAttributes, useDropCandidate } from "@/hooks/useDropTarget";
+import { GRAPH_GROUP, rowHandler } from "@/core/dnd/targets/row";
+import { layoutGraph } from "@/core/layout";
+import { useDropGroup } from "@/hooks/useDropTarget";
 import { MOD } from "@/keys";
 import { useGraphStore } from "@/store/graph";
+import { ErrorText } from "@/ui/components/ErrorText";
+import { KeyBadge } from "@/ui/components/KeyBadge";
+import { StatusBar } from "@/ui/components/StatusBar";
+import { TextInput } from "@/ui/components/TextInput";
+import { GraphRow } from "@/ui/widgets/GraphRow";
 
 const selectChange = (changeId: string) => void useGraphStore.getState().select(changeId);
 
@@ -19,8 +19,9 @@ export function GraphPane() {
   const error = useGraphStore((s) => s.error);
   const selectedId = useGraphStore((s) => s.selectedId);
   const layout = useMemo(() => layoutGraph(changes), [changes]);
-  const effects = useMemo(() => layout.rows.map((row) => changeEffect(row.change)), [layout]);
-  const { candidate, destructive } = useDropCandidate(effects);
+  const targets = useMemo(() => layout.rows.map((row) => ({ row, handler: rowHandler(row.change) })), [layout]);
+  const handlers = useMemo(() => targets.map((target) => target.handler), [targets]);
+  const group = useDropGroup(GRAPH_GROUP, handlers);
 
   return (
     <div data-pane="graph" tabIndex={-1} className="flex h-full flex-col outline-none">
@@ -29,13 +30,14 @@ export function GraphPane() {
       </div>
       {error && <ErrorText className="border-b border-danger">{error}</ErrorText>}
       <div
-        {...dropAttributes(candidate ? DropState.Candidate : undefined, destructive)}
+        {...group}
         className="min-h-0 flex-1 overflow-auto"
       >
-        {layout.rows.map((row) => (
+        {targets.map(({ row, handler }) => (
           <GraphRow
             key={row.change.commit_id}
             row={row}
+            handler={handler}
             laneCount={layout.laneCount}
             selected={row.change.change_id === selectedId}
             onSelect={selectChange}

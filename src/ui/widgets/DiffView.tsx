@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
 
-import { ReviewDot } from "@/components/ReviewDot";
-import { CopyButton } from "@/components/ui/CopyButton";
-import type { DragSource } from "@/graph/drop";
-import { useDragSource } from "@/hooks/useDragSource";
-import { hunkState, segments } from "@/review/hunks";
+import type { DragObject } from "@/core/dnd/objects";
+import { hunkState, segments } from "@/core/hunks";
+import { useDragObject } from "@/hooks/useDragObject";
 import { selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, LineKind, type DiffLine, type FileView } from "@/types";
+import { CopyButton } from "@/ui/components/CopyButton";
+import { ReviewDot } from "@/ui/widgets/ReviewDot";
 
 const TOKEN_CLASS: Record<string, string> = {
   keyword: "text-syntax-keyword",
@@ -69,13 +69,13 @@ function Hunk({ file, group, lines, reviewable }: {
   const change = useGraphStore(selectSelectedChange);
   const movable =
     !!change && !change.immutable && !file.binary && (file.status === FileStatus.Modified || file.status === FileStatus.Added);
-  const source: DragSource | undefined = change && {
+  const object: DragObject | undefined = change && {
     kind: "hunk",
     from: change,
     path: file.path,
     digest: file.digests[group],
   };
-  const dragAttributes = useDragSource(`hunk:${file.path}:${group}`, ref, source, !movable);
+  const dragAttributes = useDragObject(`hunk:${file.path}:${group}`, ref, object, !movable);
   useEffect(() => {
     if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
   }, [isCursor]);

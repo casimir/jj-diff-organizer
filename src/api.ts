@@ -1,7 +1,12 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
+import { open } from "@tauri-apps/plugin-dialog";
+import { load } from "@tauri-apps/plugin-store";
 
-import type { Change, Entry, FileView, HunkRef, Marks, RepoInfo, Run } from "@/types";
+import { IS_MAC } from "@/platform";
+import type { Change, Entry, FileView, HunkRef, Marks, RepoInfo, Run, Settings, Theme } from "@/types";
 
 export const startDir = () => invoke<string | null>("start_dir");
 export const currentRepo = () => invoke<RepoInfo | null>("current_repo");
@@ -34,6 +39,35 @@ export const onRepoChanged = (handler: () => void) => getCurrentWebviewWindow().
 export const onReviewChanged = (handler: (changeIds: string[]) => void) =>
   getCurrentWebviewWindow().listen<string[]>("review-changed", (event) => handler(event.payload));
 
-export function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+export { readClipboard, writeClipboard };
+
+export const pickFolder = () => open({ directory: true });
+
+const SETTINGS_FILE = "settings.json";
+const SETTINGS_KEY = "settings";
+
+export async function loadSettings(): Promise<Partial<Settings> | undefined> {
+  const store = await load(SETTINGS_FILE);
+  return store.get<Partial<Settings>>(SETTINGS_KEY);
+}
+
+export async function saveSettings(settings: Settings): Promise<void> {
+  const store = await load(SETTINGS_FILE);
+  await store.set(SETTINGS_KEY, settings);
+}
+
+export async function onSettingsChanged(handler: (saved: Partial<Settings> | undefined) => void) {
+  const store = await load(SETTINGS_FILE);
+  await store.onKeyChange<Partial<Settings>>(SETTINGS_KEY, handler);
+}
+
+export async function applyTheme(theme: Theme | null): Promise<void> {
+  const win = getCurrentWindow();
+  await win.setTheme(theme);
+  if (theme === null && !IS_MAC) {
+    const system = await win.theme();
+    if (system) {
+      await win.setTheme(system);
+    }
+  }
 }

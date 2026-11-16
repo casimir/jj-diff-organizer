@@ -1,33 +1,25 @@
 import { useEffect, useState } from "react";
-import { Group, Panel, usePanelRef } from "react-resizable-panels";
+import { Group, Panel } from "react-resizable-panels";
 
-import { errorMessage } from "@/api";
-import { DetailsPane } from "@/components/DetailsPane";
-import { DragLayer } from "@/components/DragLayer";
-import { GraphPane } from "@/components/GraphPane";
-import { Handle } from "@/components/Handle";
-import { HistoryPane } from "@/components/HistoryPane";
-import { ErrorText } from "@/components/ui/ErrorText";
-import { RunningNotice } from "@/components/RunningNotice";
-import { TerminalPane } from "@/components/TerminalPane";
-import { WelcomePage } from "@/components/WelcomePage";
+import { DragLayer } from "@/DragLayer";
+import { errorMessage } from "@/error";
 import { handleKey } from "@/keys";
 import { RepoStatus, useRepoStore } from "@/store/repo";
 import { useSettingsStore } from "@/store/settings";
-import { useUiStore } from "@/store/ui";
+import { ErrorText } from "@/ui/components/ErrorText";
+import { Handle } from "@/ui/components/Handle";
+import { DetailsPane } from "@/DetailsPane";
+import { GraphPane } from "@/GraphPane";
+import { HistoryPane } from "@/HistoryPane";
+import { RunningNotice } from "@/ui/widgets/RunningNotice";
+import { TerminalPane } from "@/TerminalPane";
+import { WelcomePage } from "@/WelcomePage";
 
 export function App() {
   const loaded = useSettingsStore((s) => s.loaded);
   const repoStatus = useRepoStore((s) => s.status);
   const repoFatal = useRepoStore((s) => s.fatal);
   const [startupError, setStartupError] = useState<string | null>(null);
-  const historyPanel = usePanelRef();
-
-  useEffect(() => {
-    useUiStore.getState().setShowHistory(() => {
-      if (historyPanel.current?.isCollapsed()) historyPanel.current.expand();
-    });
-  }, [historyPanel]);
 
   useEffect(() => {
     useSettingsStore
@@ -72,7 +64,7 @@ export function App() {
                 <TerminalPane />
               </Panel>
               <Handle orientation="horizontal" />
-              <Panel panelRef={historyPanel} collapsible collapsedSize="0%" minSize="15%">
+              <Panel minSize="15%">
                 <HistoryPane />
               </Panel>
             </Group>

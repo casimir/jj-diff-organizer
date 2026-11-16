@@ -4,6 +4,11 @@ export const Theme = {
 } as const;
 export type Theme = (typeof Theme)[keyof typeof Theme];
 
+export interface Settings {
+  theme: Theme | null;
+  recentRepos: string[];
+}
+
 export interface Change {
   change_id: string;
   short: string;

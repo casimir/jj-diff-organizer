@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Check, Copy } from "lucide-react";
 
-import { Button, ButtonVariant } from "@/components/ui/Button";
+import * as api from "@/api";
+import { Button, ButtonVariant } from "@/ui/components/Button";
 
 const FEEDBACK_MS = 1500;
 
@@ -25,7 +25,7 @@ export function CopyButton({ text, label, onError }: {
       variant={ButtonVariant.Ghost}
       title={label}
       aria-label={label}
-      onClick={() => writeText(text).then(() => setCopied(true), onError)}
+      onClick={() => api.writeClipboard(text).then(() => setCopied(true), onError)}
     >
       <Icon className="size-3.5" />
     </Button>

@@ -1,24 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { layoutGraph } from "@/graph/layout";
-import type { Change } from "@/types";
+import { layoutGraph } from "@/core/layout";
+import { change as makeChange } from "@/fixtures";
 
-function change(id: string, parents: string[]): Change {
-  return {
-    change_id: id,
-    short: id,
-    short_prefix: id,
-    commit_id: id,
-    parents,
-    desc: id,
-    bookmarks: [],
-    unsynced_bookmarks: [],
-    wc: false,
-    immutable: false,
-    empty: false,
-    conflict: false,
-  };
-}
+const change = (id: string, parents: string[]) => makeChange(id, { parents });
 
 describe("layoutGraph", () => {
   it("puts sibling branches in separate lanes and joins the second one into its parent's lane", () => {

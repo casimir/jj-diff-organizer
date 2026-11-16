@@ -1,11 +1,11 @@
 import TimeAgo from "react-timeago";
 
-import { ErrorText } from "@/components/ui/ErrorText";
-import { KeyBadge } from "@/components/ui/KeyBadge";
-import { ListRow } from "@/components/ui/ListRow";
-import { StatusBar } from "@/components/ui/StatusBar";
 import { MOD } from "@/keys";
 import { useHistoryStore } from "@/store/history";
+import { ErrorText } from "@/ui/components/ErrorText";
+import { KeyBadge } from "@/ui/components/KeyBadge";
+import { ListRow } from "@/ui/components/ListRow";
+import { StatusBar } from "@/ui/components/StatusBar";
 
 export function HistoryPane() {
   const entries = useHistoryStore((s) => s.entries);

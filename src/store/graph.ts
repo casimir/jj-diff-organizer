@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
 import * as api from "@/api";
-import { HunkState, nextHunk, samePos, type HunkPos } from "@/review/hunks";
+import { HunkState, nextHunk, samePos, type HunkPos } from "@/core/hunks";
+import { errorMessage } from "@/error";
 import type { Change, FileView, Marks, RepoInfo } from "@/types";
 
 interface GraphState {
@@ -72,7 +73,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
         cursor: stillThere ? cursor : firstHunk(file),
       });
     } catch (e) {
-      if (seq === latestDetails) set({ files: [], marks: {}, cursor: null, detailsError: api.errorMessage(e) });
+      if (seq === latestDetails) set({ files: [], marks: {}, cursor: null, detailsError: errorMessage(e) });
     }
   };
 
@@ -82,7 +83,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
       const marks = await api.marks(changeId);
       if (seq === latestMarks && get().selectedId === changeId) set({ marks });
     } catch (e) {
-      if (seq === latestMarks && get().selectedId === changeId) set({ detailsError: api.errorMessage(e) });
+      if (seq === latestMarks && get().selectedId === changeId) set({ detailsError: errorMessage(e) });
     }
   };
 
@@ -93,7 +94,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
       const ids = await api.successors(revset, changeId);
       if (ids.length === 1) successor = ids[0];
     } catch (e) {
-      error = api.errorMessage(e);
+      error = errorMessage(e);
     }
     if (seq !== latestRefresh || get().selectedId !== changeId) return;
 
@@ -111,7 +112,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
     try {
       await api.reviewSet(changeId, file.path, digests, reviewed, file.digests);
     } catch (e) {
-      set({ error: api.errorMessage(e) });
+      set({ error: errorMessage(e) });
       return;
     }
     await loadMarks(changeId);
@@ -196,7 +197,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
       await toggle(file, file.digests, !file.digests.every((d) => marked.includes(d)));
     },
 
-    reportDetailsError: (e) => set({ detailsError: api.errorMessage(e) }),
+    reportDetailsError: (e) => set({ detailsError: errorMessage(e) }),
 
     refresh: async () => {
       const seq = ++latestRefresh;
@@ -211,7 +212,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
           }
         }
       } catch (e) {
-        if (seq === latestRefresh) set({ error: api.errorMessage(e) });
+        if (seq === latestRefresh) set({ error: errorMessage(e) });
       }
       await details;
     },

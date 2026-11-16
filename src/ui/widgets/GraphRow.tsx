@@ -1,13 +1,14 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 
-import { DragLabel } from "@/components/DragLabel";
-import { ChipTone } from "@/components/ui/Chip";
-import { ListRow } from "@/components/ui/ListRow";
-import { changeEffect, Zone, type DragSource } from "@/graph/drop";
-import type { Row } from "@/graph/layout";
-import { useDragSource } from "@/hooks/useDragSource";
-import { dropAttributes, useDropTarget } from "@/hooks/useDropTarget";
-import { useDragStore } from "@/store/drag";
+import type { Handler } from "@/core/dnd/model";
+import type { DragObject } from "@/core/dnd/objects";
+import { GRAPH_GROUP } from "@/core/dnd/targets/row";
+import type { Row } from "@/core/layout";
+import { useDragObject } from "@/hooks/useDragObject";
+import { useDropTarget } from "@/hooks/useDropTarget";
+import { ChipTone } from "@/ui/components/Chip";
+import { ListRow } from "@/ui/components/ListRow";
+import { DragLabel } from "@/ui/widgets/DragLabel";
 
 const ROW_HEIGHT = 28;
 const LANE_WIDTH = 14;
@@ -18,11 +19,13 @@ const laneX = (lane: number) => lane * LANE_WIDTH + LANE_WIDTH / 2;
 
 export const GraphRow = memo(function GraphRow({
   row,
+  handler,
   laneCount,
   selected,
   onSelect,
 }: {
   row: Row;
+  handler: Handler;
   laneCount: number;
   selected: boolean;
   onSelect: (changeId: string) => void;
@@ -32,15 +35,12 @@ export const GraphRow = memo(function GraphRow({
   const fill = change.wc ? "fill-success" : change.immutable ? "fill-muted" : "fill-canvas";
 
   const ref = useRef<HTMLDivElement>(null);
-  const source: DragSource = { kind: "change", change };
-  const dragAttributes = useDragSource(`change:${change.commit_id}`, ref, source, change.immutable);
-  const rowId = `row:${change.commit_id}`;
-  const effect = useMemo(() => changeEffect(change), [change]);
-  const active = useDropTarget(rowId, ref, effect);
+  const object: DragObject = { kind: "change", change };
+  const dragAttributes = useDragObject(`change:${change.commit_id}`, ref, object, change.immutable);
+  const dropTarget = useDropTarget(`row:${change.commit_id}`, ref, { handler, group: GRAPH_GROUP });
   useEffect(() => {
     if (selected) ref.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
-  const zone = useDragStore((s) => (s.source?.kind === "change" ? s.zone : Zone.Onto));
 
   return (
     <ListRow
@@ -48,7 +48,7 @@ export const GraphRow = memo(function GraphRow({
       selected={selected}
       onClick={() => onSelect(change.change_id)}
       {...dragAttributes}
-      {...dropAttributes(active ? zone : undefined, false)}
+      {...dropTarget}
       className="flex items-center pl-2"
       style={{ height: ROW_HEIGHT }}
     >
@@ -85,7 +85,7 @@ export const GraphRow = memo(function GraphRow({
       {change.wc && (
         <DragLabel
           id="wc"
-          source={{ kind: "wc", change }}
+          object={{ kind: "wc", change }}
           tone={ChipTone.Success}
           className="mr-1 shrink-0"
         >
@@ -96,7 +96,7 @@ export const GraphRow = memo(function GraphRow({
         <DragLabel
           key={b}
           id={`bookmark:${b}`}
-          source={{ kind: "bookmark", name: b }}
+          object={{ kind: "bookmark", name: b }}
           tone={ChipTone.Accent}
           className="mr-1 shrink-0"
         >

@@ -1,23 +1,19 @@
 import { create } from "zustand";
 
-interface UiState {
-  shellMaximized: boolean;
+interface TerminalState {
+  maximized: boolean;
   focusTerminal: () => void;
   insertIntoTerminal: (text: string) => void;
-  showHistory: () => void;
-  setShowHistory: (show: () => void) => void;
   setFocusTerminal: (focus: () => void) => void;
   setInsertIntoTerminal: (insert: (text: string) => void) => void;
-  toggleShellMaximized: () => void;
+  toggleMaximized: () => void;
 }
 
-export const useUiStore = create<UiState>((set) => ({
-  shellMaximized: false,
+export const useTerminalStore = create<TerminalState>((set) => ({
+  maximized: false,
   focusTerminal: () => {},
   insertIntoTerminal: () => {},
-  showHistory: () => {},
-  setShowHistory: (showHistory) => set({ showHistory }),
   setFocusTerminal: (focusTerminal) => set({ focusTerminal }),
   setInsertIntoTerminal: (insertIntoTerminal) => set({ insertIntoTerminal }),
-  toggleShellMaximized: () => set((s) => ({ shellMaximized: !s.shellMaximized })),
+  toggleMaximized: () => set((s) => ({ maximized: !s.maximized })),
 }));

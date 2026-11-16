@@ -1,7 +1,7 @@
-import { open as pickFolder } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 
 import * as api from "@/api";
+import { errorMessage } from "@/error";
 import { useSettingsStore } from "@/store/settings";
 import { startSync } from "@/store/sync";
 import type { RepoInfo } from "@/types";
@@ -30,7 +30,7 @@ export const useRepoStore = create<RepoState>((set, get) => {
       await startSync(info);
       set({ opening: false, status: RepoStatus.Open });
     } catch (e) {
-      set({ opening: false, fatal: api.errorMessage(e) });
+      set({ opening: false, fatal: errorMessage(e) });
     }
   };
 
@@ -39,7 +39,7 @@ export const useRepoStore = create<RepoState>((set, get) => {
     try {
       info = await api.openRepo(path);
     } catch (e) {
-      set({ opening: false, status: RepoStatus.Welcome, error: api.errorMessage(e) });
+      set({ opening: false, status: RepoStatus.Welcome, error: errorMessage(e) });
       return;
     }
     await enter(info);
@@ -73,12 +73,12 @@ export const useRepoStore = create<RepoState>((set, get) => {
 
     pick: async () => {
       try {
-        const dir = await pickFolder({ directory: true });
+        const dir = await api.pickFolder();
         if (dir) {
           await get().open(dir);
         }
       } catch (e) {
-        set({ error: api.errorMessage(e) });
+        set({ error: errorMessage(e) });
       }
     },
   };

@@ -1,10 +1,10 @@
 import { X } from "lucide-react";
 
-import { Button, ButtonVariant } from "@/components/ui/Button";
-import { ErrorText } from "@/components/ui/ErrorText";
-import { ListRow } from "@/components/ui/ListRow";
 import { useRepoStore } from "@/store/repo";
 import { useSettingsStore } from "@/store/settings";
+import { Button, ButtonVariant } from "@/ui/components/Button";
+import { ErrorText } from "@/ui/components/ErrorText";
+import { ListRow } from "@/ui/components/ListRow";
 
 export function WelcomePage() {
   const recentRepos = useSettingsStore((s) => s.recentRepos);

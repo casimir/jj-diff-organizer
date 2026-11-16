@@ -1,33 +1,31 @@
-import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 
 import * as api from "@/api";
-import { ErrorText } from "@/components/ui/ErrorText";
-import { KeyBadge } from "@/components/ui/KeyBadge";
-import { DropState, terminalEffect } from "@/graph/drop";
+import { terminalHandler } from "@/core/dnd/targets/terminal";
+import { errorMessage } from "@/error";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
-import { dropAttributes, useDropCandidate, useDropTarget } from "@/hooks/useDropTarget";
+import { useSoloDropTarget } from "@/hooks/useDropTarget";
 import { MOD } from "@/keys";
 import { IS_MAC } from "@/platform";
-import { useUiStore } from "@/store/ui";
-import { TERMINAL_THEMES } from "@/terminal/themes";
+import { useTerminalStore } from "@/store/terminal";
+import { TERMINAL_THEMES } from "@/terminalThemes";
+import { ErrorText } from "@/ui/components/ErrorText";
+import { KeyBadge } from "@/ui/components/KeyBadge";
 
 const TERMINAL_ID = "terminal";
-const EFFECTS = [terminalEffect];
 const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to restart]");
 
 export function TerminalPane() {
   const host = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
-  const active = useDropTarget(TERMINAL_ID, pane, terminalEffect);
-  const { candidate, destructive } = useDropCandidate(EFFECTS);
+  const dropTarget = useSoloDropTarget(TERMINAL_ID, pane, { handler: terminalHandler });
   const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState(0);
-  const maximized = useUiStore((s) => s.shellMaximized);
+  const maximized = useTerminalStore((s) => s.maximized);
   const theme = TERMINAL_THEMES[useColorScheme()];
 
   useEffect(() => {
@@ -40,7 +38,7 @@ export function TerminalPane() {
     let cancelled = false;
     let exited = false;
     const fail = (e: unknown) => {
-      if (!cancelled) setError(api.errorMessage(e));
+      if (!cancelled) setError(errorMessage(e));
     };
     setError(null);
 
@@ -65,13 +63,14 @@ export function TerminalPane() {
 
         if (e.code === "KeyC") {
           e.preventDefault();
-          writeText(term.getSelection()).catch(fail);
+          api.writeClipboard(term.getSelection()).catch(fail);
           return false;
         }
 
         if (e.code === "KeyV") {
           e.preventDefault();
-          readText()
+          api
+            .readClipboard()
             .then((text) => term.paste(text))
             .catch(fail);
           return false;
@@ -102,8 +101,8 @@ export function TerminalPane() {
       .then(() => {
         if (cancelled) return;
         term.focus();
-        useUiStore.getState().setFocusTerminal(() => term.focus());
-        useUiStore.getState().setInsertIntoTerminal((text) => {
+        useTerminalStore.getState().setFocusTerminal(() => term.focus());
+        useTerminalStore.getState().setInsertIntoTerminal((text) => {
           if (!exited) api.ptyWrite(text).catch(fail);
           term.focus();
         });
@@ -112,8 +111,8 @@ export function TerminalPane() {
 
     return () => {
       cancelled = true;
-      useUiStore.getState().setFocusTerminal(() => { });
-      useUiStore.getState().setInsertIntoTerminal(() => { });
+      useTerminalStore.getState().setFocusTerminal(() => { });
+      useTerminalStore.getState().setInsertIntoTerminal(() => { });
       observer.disconnect();
       termRef.current = null;
       term.dispose();
@@ -124,7 +123,7 @@ export function TerminalPane() {
     <div
       ref={pane}
       data-terminal
-      {...dropAttributes(active ? DropState.Onto : candidate ? DropState.Candidate : undefined, destructive)}
+      {...dropTarget}
       style={{ background: theme.background }}
       className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-(--z-overlay)" : "relative h-full"}`}
     >

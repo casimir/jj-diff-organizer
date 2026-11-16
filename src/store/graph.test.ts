@@ -1,32 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "@/api";
-import type { Change } from "@/types";
+import { change } from "@/fixtures";
 
 import { useGraphStore } from "./graph";
 
 vi.mock("@/api");
 
-const change = (id: string): Change => ({
-  change_id: id,
-  short: id,
-  short_prefix: id,
-  commit_id: `commit-${id}`,
-  parents: [],
-  desc: "",
-  bookmarks: [],
-  unsynced_bookmarks: [],
-  wc: false,
-  immutable: false,
-  empty: false,
-  conflict: false,
-});
-
 const gone = new Error("Revision `x` doesn't exist");
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(api.errorMessage).mockImplementation((e) => (e as Error).message);
   vi.mocked(api.marks).mockResolvedValue({});
   vi.mocked(api.show).mockImplementation(async (id) => {
     if (id === "x") throw gone;

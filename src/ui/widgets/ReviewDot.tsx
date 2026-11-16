@@ -1,4 +1,4 @@
-import { HunkState } from "@/review/hunks";
+import { HunkState } from "@/core/hunks";
 
 const STYLE: Record<HunkState, { className: string; title: string }> = {
   [HunkState.Reviewed]: { className: "border-success bg-success", title: "Reviewed" },

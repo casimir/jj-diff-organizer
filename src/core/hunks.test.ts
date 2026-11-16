@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HunkState, hunkState, nextHunk } from "@/review/hunks";
+import { HunkState, hunkState, nextHunk } from "@/core/hunks";
 import { FileStatus, type FileView } from "@/types";
 
 function file(path: string, digests: string[]): FileView {

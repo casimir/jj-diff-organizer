@@ -1,19 +1,19 @@
 import { useRef } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
-import { DiffView } from "@/components/DiffView";
-import { Handle } from "@/components/Handle";
-import { ReviewDot } from "@/components/ReviewDot";
-import { TrashZone } from "@/components/TrashZone";
-import { ErrorText } from "@/components/ui/ErrorText";
-import { KeyBadge } from "@/components/ui/KeyBadge";
-import { ListRow } from "@/components/ui/ListRow";
-import { StatusBar } from "@/components/ui/StatusBar";
-import type { DragSource } from "@/graph/drop";
-import { useDragSource } from "@/hooks/useDragSource";
-import { fileState } from "@/review/hunks";
+import type { DragObject } from "@/core/dnd/objects";
+import { fileState } from "@/core/hunks";
+import { useDragObject } from "@/hooks/useDragObject";
 import { selectIsWorkingCopy, selectSelectedChange, useGraphStore } from "@/store/graph";
 import { FileStatus, type FileView } from "@/types";
+import { ErrorText } from "@/ui/components/ErrorText";
+import { Handle } from "@/ui/components/Handle";
+import { KeyBadge } from "@/ui/components/KeyBadge";
+import { ListRow } from "@/ui/components/ListRow";
+import { StatusBar } from "@/ui/components/StatusBar";
+import { DiffView } from "@/ui/widgets/DiffView";
+import { ReviewDot } from "@/ui/widgets/ReviewDot";
+import { TrashZone } from "@/ui/widgets/TrashZone";
 
 const STATUS: Record<FileStatus, { letter: string; className: string }> = {
   [FileStatus.Added]: { letter: "A", className: "text-success" },
@@ -30,13 +30,13 @@ function FileRow({ file, selected, reviewable }: {
   const state = useGraphStore((s) => fileState(file, s.marks));
   const change = useGraphStore(selectSelectedChange);
   const ref = useRef<HTMLDivElement>(null);
-  const source: DragSource | undefined = change && {
+  const object: DragObject | undefined = change && {
     kind: "file",
     from: change,
     path: file.path,
     renamedFrom: file.status === FileStatus.Renamed ? file.old_path : null,
   };
-  const dragAttributes = useDragSource(`file:${file.path}`, ref, source, !change || change.immutable);
+  const dragAttributes = useDragObject(`file:${file.path}`, ref, object, !change || change.immutable);
   const name = file.path.split("/").pop();
   const { letter, className } = STATUS[file.status];
   return (
