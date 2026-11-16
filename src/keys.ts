@@ -1,7 +1,7 @@
+import { IS_MAC } from "@/platform";
 import { selectIsWorkingCopy, useGraphStore } from "@/store/graph";
 import { useUiStore } from "@/store/ui";
 
-export const IS_MAC = /Mac/.test(navigator.platform);
 export const MOD = IS_MAC ? "⌘" : "Ctrl";
 
 const hasMod = (e: KeyboardEvent) => (IS_MAC ? e.metaKey : e.ctrlKey);

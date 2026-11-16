@@ -10,7 +10,8 @@ import { KeyBadge } from "@/components/ui/KeyBadge";
 import { DropState, terminalEffect } from "@/graph/drop";
 import { colorScheme, useColorScheme } from "@/hooks/useColorScheme";
 import { dropAttributes, useDropCandidate, useDropTarget } from "@/hooks/useDropTarget";
-import { IS_MAC, MOD } from "@/keys";
+import { MOD } from "@/keys";
+import { IS_MAC } from "@/platform";
 import { useUiStore } from "@/store/ui";
 import { TERMINAL_THEMES } from "@/terminal/themes";
 

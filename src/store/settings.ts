@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { load } from "@tauri-apps/plugin-store";
 import { create } from "zustand";
 
+import { IS_MAC } from "@/platform";
 import { Theme } from "@/types";
 
 interface Settings {
@@ -25,7 +26,7 @@ interface SettingsState extends Settings {
 const applyTheme = async (theme: Theme | null) => {
   const win = getCurrentWindow();
   await win.setTheme(theme);
-  if (theme === null) {
+  if (theme === null && !IS_MAC) {
     const system = await win.theme();
     if (system) {
       await win.setTheme(system);
