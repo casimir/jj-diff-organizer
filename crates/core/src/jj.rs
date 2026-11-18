@@ -35,6 +35,11 @@ impl Run {
     }
 }
 
+fn ms_from_str<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
+    let s = String::deserialize(d)?;
+    s.parse().map_err(serde::de::Error::custom)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Change {
     pub change_id: String,
@@ -43,6 +48,8 @@ pub struct Change {
     pub commit_id: String,
     pub parents: Vec<String>,
     pub desc: String,
+    #[serde(deserialize_with = "ms_from_str")]
+    pub committed_ms: u64,
     pub bookmarks: Vec<String>,
     pub unsynced_bookmarks: Vec<String>,
     pub wc: bool,
@@ -97,6 +104,7 @@ const CHANGE_TEMPLATE: &str = r#"json({
   "commit_id" => commit_id,
   "parents" => parents.map(|p| p.commit_id()),
   "desc" => description.first_line(),
+  "committed_ms" => committer.timestamp().format("%s%3f"),
   "bookmarks" => bookmarks.filter(|b| !b.remote()).map(|b| b.name()),
   "unsynced_bookmarks" => bookmarks.filter(|b| !b.remote() && !b.synced()).map(|b| b.name()),
   "wc" => current_working_copy,

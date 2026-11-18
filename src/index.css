@@ -24,6 +24,7 @@
   --color-syntax-type: light-dark(var(--color-teal-700), var(--color-teal-300));
   --color-syntax-function: light-dark(var(--color-sky-700), var(--color-sky-300));
   --color-syntax-attribute: light-dark(var(--color-yellow-700), var(--color-yellow-300));
+  --spacing-lane: 14px;
   --spacing-target: 24px;
   --text-badge: 11px;
   --text-badge--line-height: 1rem;

@@ -16,6 +16,7 @@ export interface Change {
   commit_id: string;
   parents: string[];
   desc: string;
+  committed_ms: number;
   bookmarks: string[];
   unsynced_bookmarks: string[];
   wc: boolean;

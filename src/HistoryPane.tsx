@@ -1,10 +1,9 @@
-import TimeAgo from "react-timeago";
-
 import { MOD } from "@/keys";
 import { useHistoryStore } from "@/store/history";
 import { ErrorText } from "@/ui/components/ErrorText";
 import { KeyBadge } from "@/ui/components/KeyBadge";
 import { ListRow } from "@/ui/components/ListRow";
+import { RelativeTime } from "@/ui/components/RelativeTime";
 import { StatusBar } from "@/ui/components/StatusBar";
 
 export function HistoryPane() {
@@ -33,9 +32,7 @@ export function HistoryPane() {
                     {command}
                   </span>
                   {failed && <span className="text-danger">failed</span>}
-                  <span className="text-muted">
-                    <TimeAgo date={time} title={new Date(time).toLocaleString()} />
-                  </span>
+                  <RelativeTime ms={time} className="text-muted" />
                 </ListRow>
                 {selected && (
                   <pre className="px-2 pb-2 font-mono whitespace-pre-wrap text-dim">{detail}</pre>

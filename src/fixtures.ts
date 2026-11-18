@@ -8,6 +8,7 @@ export function change(id: string, overrides: Partial<Change> = {}): Change {
     commit_id: id,
     parents: [],
     desc: id,
+    committed_ms: 0,
     bookmarks: [],
     unsynced_bookmarks: [],
     wc: false,
