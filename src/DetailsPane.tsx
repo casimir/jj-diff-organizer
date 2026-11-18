@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
 import type { DragObject } from "@/core/dnd/objects";
@@ -39,6 +39,13 @@ function FileRow({ file, selected, reviewable }: {
   const dragAttributes = useDragObject(`file:${file.path}`, ref, object, !change || change.immutable);
   const name = file.path.split("/").pop();
   const { letter, className } = STATUS[file.status];
+
+  useEffect(() => {
+    if (selected) {
+      ref.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [selected]);
+
   return (
     <ListRow
       ref={ref}
