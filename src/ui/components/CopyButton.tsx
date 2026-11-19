@@ -25,7 +25,10 @@ export function CopyButton({ text, label, onError }: {
       variant={ButtonVariant.Ghost}
       title={label}
       aria-label={label}
-      onClick={() => api.writeClipboard(text).then(() => setCopied(true), onError)}
+      onClick={(e) => {
+        e.stopPropagation();
+        void api.writeClipboard(text).then(() => setCopied(true), onError);
+      }}
     >
       <Icon className="size-3.5" />
     </Button>

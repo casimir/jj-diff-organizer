@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use jjdo_core::diff::Status;
-use jjdo_core::hunk::{HunkOp, hunk_digests};
+use jjdo_core::hunk::{HunkOp, hunk_keys};
 use jjdo_core::jj::{HUNK_TOOL, Jj, hunk_tool_config};
 use jjdo_core::repo::Repo;
 use jjdo_core::watch::OpWatch;
@@ -46,34 +46,39 @@ fn numbered(edits: &[(usize, &str)]) -> String {
         .collect()
 }
 
-/// Two sibling changes on top of `base`: `target` (empty) and `source` (two separate edits).
-fn two_hunk_repo() -> (TempDir, String, String) {
+/// Two sibling changes on top of `base`: `target` (empty) and `source`, which turns `old` into `new`.
+fn source_repo(old: &str, new: &str) -> TempDir {
     let dir = init_repo();
     let p = dir.path();
-    let old = numbered(&[]);
-    let new = numbered(&[(2, "edited 2"), (18, "edited 18")]);
 
-    std::fs::write(p.join("a.txt"), &old).unwrap();
+    std::fs::write(p.join("a.txt"), old).unwrap();
     jj_ok(p, &["describe", "-m", "base"]);
     jj_ok(p, &["bookmark", "create", "base"]);
     jj_ok(p, &["new", "base", "-m", "target"]);
     jj_ok(p, &["bookmark", "create", "target"]);
     jj_ok(p, &["new", "base", "-m", "source"]);
     jj_ok(p, &["bookmark", "create", "source"]);
-    std::fs::write(p.join("a.txt"), &new).unwrap();
+    std::fs::write(p.join("a.txt"), new).unwrap();
     jj_ok(p, &["status"]);
-    (dir, old, new)
+    dir
 }
 
-fn squash_hunk(dir: &Path, digest: &str) -> std::process::Output {
-    squash_hunk_into(dir, "target", digest)
+/// `source_repo` with two separate edits.
+fn two_hunk_repo() -> (TempDir, String, String) {
+    let old = numbered(&[]);
+    let new = numbered(&[(2, "edited 2"), (18, "edited 18")]);
+    (source_repo(&old, &new), old, new)
 }
 
-fn squash_hunk_into(dir: &Path, into: &str, digest: &str) -> std::process::Output {
-    squash_hunk_to(dir, &["--into", into, "--use-destination-message"], digest)
+fn squash_hunk(dir: &Path, key: &str) -> std::process::Output {
+    squash_hunk_into(dir, "target", key)
 }
 
-fn squash_hunk_to(dir: &Path, destination: &[&str], digest: &str) -> std::process::Output {
+fn squash_hunk_into(dir: &Path, into: &str, key: &str) -> std::process::Output {
+    squash_hunk_to(dir, &["--into", into, "--use-destination-message"], key)
+}
+
+fn squash_hunk_to(dir: &Path, destination: &[&str], key: &str) -> std::process::Output {
     let probe = env!("CARGO_BIN_EXE_hunk-probe");
     Command::new("jj")
         .args(["--no-pager", "--color=never"])
@@ -81,7 +86,7 @@ fn squash_hunk_to(dir: &Path, destination: &[&str], digest: &str) -> std::proces
             Path::new(probe),
             HunkOp::Keep,
             "a.txt",
-            digest,
+            key,
         ))
         .args(["squash", "--from", "source"])
         .args(destination)
@@ -93,7 +98,7 @@ fn squash_hunk_to(dir: &Path, destination: &[&str], digest: &str) -> std::proces
         .unwrap()
 }
 
-fn revert_hunk(dir: &Path, digest: &str) -> std::process::Output {
+fn revert_hunk(dir: &Path, key: &str) -> std::process::Output {
     let probe = env!("CARGO_BIN_EXE_hunk-probe");
     Command::new("jj")
         .args(["--no-pager", "--color=never"])
@@ -101,7 +106,7 @@ fn revert_hunk(dir: &Path, digest: &str) -> std::process::Output {
             Path::new(probe),
             HunkOp::Revert,
             "a.txt",
-            digest,
+            key,
         ))
         .args(["diffedit", "-r", "source", "--tool", HUNK_TOOL, "a.txt"])
         .current_dir(dir)
@@ -115,9 +120,9 @@ fn revert_hunk(dir: &Path, digest: &str) -> std::process::Output {
 fn diffedit_tool_reverts_only_the_selected_hunk() {
     let (dir, old, new) = two_hunk_repo();
     let p = dir.path();
-    let digests = hunk_digests(&old, &new);
+    let keys = hunk_keys(&old, &new);
 
-    let out = revert_hunk(p, &digests[0]);
+    let out = revert_hunk(p, &keys[0]);
     assert!(
         out.status.success(),
         "{}",
@@ -134,10 +139,10 @@ fn diffedit_tool_reverts_only_the_selected_hunk() {
 fn squash_tool_moves_only_the_selected_hunk() {
     let (dir, old, new) = two_hunk_repo();
     let p = dir.path();
-    let digests = hunk_digests(&old, &new);
-    assert_eq!(digests.len(), 2);
+    let keys = hunk_keys(&old, &new);
+    assert_eq!(keys.len(), 2);
 
-    let out = squash_hunk(p, &digests[0]);
+    let out = squash_hunk(p, &keys[0]);
     assert!(
         out.status.success(),
         "{}",
@@ -155,13 +160,39 @@ fn squash_tool_moves_only_the_selected_hunk() {
 }
 
 #[test]
+fn squash_tool_moves_the_second_of_two_identical_hunks() {
+    let old = "k\nk\nk\nx\nk\nk\nk\nx\nk\nk\nk\n";
+    let new = old.replace('x', "X");
+    let dir = source_repo(old, &new);
+    let p = dir.path();
+    let keys = hunk_keys(old, &new);
+    assert_eq!(keys.len(), 2);
+
+    let out = squash_hunk(p, &keys[1]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    assert_eq!(
+        jj_ok(p, &["file", "show", "-r", "target", "a.txt"]),
+        "k\nk\nk\nx\nk\nk\nk\nX\nk\nk\nk\n"
+    );
+    assert_eq!(
+        jj_ok(p, &["file", "show", "-r", "source", "a.txt"]),
+        "k\nk\nk\nX\nk\nk\nk\nx\nk\nk\nk\n"
+    );
+}
+
+#[test]
 fn squash_tool_moves_a_hunk_from_a_parent_into_the_working_copy() {
     let (dir, old, new) = two_hunk_repo();
     let p = dir.path();
-    let digests = hunk_digests(&old, &new);
+    let keys = hunk_keys(&old, &new);
     jj_ok(p, &["new", "source"]);
 
-    let out = squash_hunk_into(p, "@", &digests[0]);
+    let out = squash_hunk_into(p, "@", &keys[0]);
     assert!(
         out.status.success(),
         "{}",
@@ -182,9 +213,9 @@ fn squash_tool_moves_a_hunk_from_a_parent_into_the_working_copy() {
 fn squash_tool_moves_only_the_selected_hunk_into_a_new_change_before_the_target() {
     let (dir, old, new) = two_hunk_repo();
     let p = dir.path();
-    let digests = hunk_digests(&old, &new);
+    let keys = hunk_keys(&old, &new);
 
-    let out = squash_hunk_to(p, &["--insert-before", "target"], &digests[0]);
+    let out = squash_hunk_to(p, &["--insert-before", "target"], &keys[0]);
     assert!(
         out.status.success(),
         "{}",
@@ -223,7 +254,7 @@ fn squash_tool_fails_without_touching_the_repo_when_the_hunk_changed() {
     let repo = Repo::discover(p).unwrap();
     let heads = repo.op_heads().unwrap();
 
-    let out = squash_hunk(p, "stale-digest");
+    let out = squash_hunk(p, "stale-key");
 
     assert!(!out.status.success());
     assert_eq!(repo.op_heads().unwrap(), heads);
@@ -349,11 +380,11 @@ fn successors_follow_a_squash_but_not_an_abandon() {
     let jj = Jj::new(Repo::discover(p).unwrap());
     let source = change_id(p, "source");
     let target = change_id(p, "target");
-    let digests = hunk_digests(&old, &new);
+    let keys = hunk_keys(&old, &new);
 
     assert!(jj.successors("all()", &source).unwrap().is_empty());
 
-    let out = squash_hunk(p, &digests[0]);
+    let out = squash_hunk(p, &keys[0]);
     assert!(out.status.success());
     assert_eq!(jj.successors("all()", &source).unwrap(), [target]);
 

@@ -117,27 +117,43 @@ pub fn marks(
 }
 
 #[tauri::command]
-pub fn review_set(
+pub fn review_set_hunk(
     window: WebviewWindow,
     sessions: State<'_, Sessions>,
     change_id: String,
     path: String,
-    digests: Vec<String>,
+    key: String,
     reviewed: bool,
-    current: Vec<String>,
+    shown_keys: Vec<String>,
 ) -> Result<(), String> {
     session_for(&sessions, &window)?
         .review
         .lock()
         .unwrap()
-        .set(&change_id, &path, &digests, reviewed, &current)
+        .set_hunk(&change_id, &path, &key, reviewed, &shown_keys)
+}
+
+#[tauri::command]
+pub fn review_set_file(
+    window: WebviewWindow,
+    sessions: State<'_, Sessions>,
+    change_id: String,
+    path: String,
+    reviewed: bool,
+    shown_keys: Vec<String>,
+) -> Result<(), String> {
+    session_for(&sessions, &window)?
+        .review
+        .lock()
+        .unwrap()
+        .set_file(&change_id, &path, reviewed, &shown_keys)
 }
 
 #[derive(Deserialize)]
 pub struct HunkRef {
     op: HunkOp,
     path: String,
-    digest: String,
+    key: String,
 }
 
 #[tauri::command(async)]
@@ -151,7 +167,7 @@ pub fn run_jj(
     let config = match hunk {
         Some(h) => {
             let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-            hunk_tool_config(&exe, h.op, &h.path, &h.digest)
+            hunk_tool_config(&exe, h.op, &h.path, &h.key)
         }
         None => Vec::new(),
     };

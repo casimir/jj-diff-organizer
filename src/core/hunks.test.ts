@@ -1,40 +1,41 @@
 import { describe, expect, it } from "vitest";
 
-import { HunkState, hunkState, nextHunk } from "@/core/hunks";
-import { FileStatus, type FileView } from "@/types";
-
-function file(path: string, digests: string[]): FileView {
-  return { path, old_path: null, status: FileStatus.Modified, binary: false, digests, lines: [] };
-}
+import { HunkState, hunkState, isCollapsed, pruneCollapseOverrides } from "@/core/hunks";
+import { file } from "@/fixtures";
 
 describe("hunkState", () => {
   it("flags an unreviewed hunk as changed when a marked hunk of its file no longer exists", () => {
     const edited = file("a.txt", ["d1", "d2-edited"]);
     const marks = { "a.txt": ["d1", "d2"] };
-    expect(hunkState(edited, marks, 0)).toBe(HunkState.Reviewed);
-    expect(hunkState(edited, marks, 1)).toBe(HunkState.Changed);
+    expect(hunkState(edited, marks, "d1")).toBe(HunkState.Reviewed);
+    expect(hunkState(edited, marks, "d2-edited")).toBe(HunkState.Changed);
   });
 
   it("leaves a never-reviewed file unreviewed", () => {
-    expect(hunkState(file("a.txt", ["d1"]), {}, 0)).toBe(HunkState.Unreviewed);
+    expect(hunkState(file("a.txt", ["d1"]), {}, "d1")).toBe(HunkState.Unreviewed);
   });
 });
 
-describe("nextHunk", () => {
-  const files = [file("a.txt", ["a1", "a2"]), file("b.txt", ["b1"])];
-  const marks = { "a.txt": ["a1", "a2"] };
-  const unreviewed = (s: HunkState) => s !== HunkState.Reviewed;
+describe("isCollapsed", () => {
+  const reviewed = file("a.txt", ["d1"]);
+  const marks = { "a.txt": ["d1"] };
 
-  it("skips reviewed hunks across files and wraps around", () => {
-    expect(nextHunk(files, marks, { path: "a.txt", group: 0 }, 1, unreviewed)).toEqual({ path: "b.txt", group: 0 });
-    expect(nextHunk(files, marks, { path: "b.txt", group: 0 }, 1, unreviewed)).toEqual({ path: "b.txt", group: 0 });
+  it("collapses a reviewed file by default, unless a toggle says otherwise or it is not reviewable", () => {
+    expect(isCollapsed(reviewed, marks, {}, true)).toBe(true);
+    expect(isCollapsed(reviewed, marks, { "a.txt": false }, true)).toBe(false);
+    expect(isCollapsed(reviewed, marks, {}, false)).toBe(false);
+  });
+});
+
+describe("pruneCollapseOverrides", () => {
+  const before = { files: [file("a.txt", ["d1"]), file("b.txt", ["b1"])], marks: { "a.txt": ["d1"] } };
+
+  it("keeps a toggle while the file's review state is unchanged", () => {
+    expect(pruneCollapseOverrides({ "b.txt": true }, before, before)).toEqual({ "b.txt": true });
   });
 
-  it("walks backwards from nothing to the last hunk", () => {
-    expect(nextHunk(files, {}, null, -1)).toEqual({ path: "b.txt", group: 0 });
-  });
-
-  it("finds nothing when every hunk is reviewed", () => {
-    expect(nextHunk(files, { "a.txt": ["a1", "a2"], "b.txt": ["b1"] }, null, 1, unreviewed)).toBeNull();
+  it("drops a toggle once the file changed since review or is gone", () => {
+    const edited = { files: [file("a.txt", ["d1-edited"])], marks: before.marks };
+    expect(pruneCollapseOverrides({ "a.txt": false, "b.txt": true }, before, edited)).toEqual({});
   });
 });

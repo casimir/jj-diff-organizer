@@ -5,19 +5,20 @@ import { layoutGraph } from "@/core/layout";
 import { useDropGroup } from "@/hooks/useDropTarget";
 import { MOD } from "@/keys";
 import { useGraphStore } from "@/store/graph";
+import { useSelectionStore } from "@/store/selection";
 import { ErrorText } from "@/ui/components/ErrorText";
 import { KeyBadge } from "@/ui/components/KeyBadge";
 import { StatusBar } from "@/ui/components/StatusBar";
 import { TextInput } from "@/ui/components/TextInput";
 import { GraphRow } from "@/ui/widgets/GraphRow";
 
-const selectChange = (changeId: string) => void useGraphStore.getState().select(changeId);
+const selectChange = (changeId: string) => useSelectionStore.getState().selectChange(changeId);
 
 export function GraphPane() {
   const revset = useGraphStore((s) => s.revset);
   const changes = useGraphStore((s) => s.changes);
   const error = useGraphStore((s) => s.error);
-  const selectedId = useGraphStore((s) => s.selectedId);
+  const selectedId = useSelectionStore((s) => s.selection?.change);
   const layout = useMemo(() => layoutGraph(changes), [changes]);
   const targets = useMemo(() => layout.rows.map((row) => ({ row, handler: rowHandler(row.change) })), [layout]);
   const handlers = useMemo(() => targets.map((target) => target.handler), [targets]);
@@ -45,7 +46,7 @@ export function GraphPane() {
         ))}
       </div>
       <StatusBar>
-        <KeyBadge>n</KeyBadge> <KeyBadge>p</KeyBadge> next / previous change <KeyBadge>@</KeyBadge> working copy{" "}
+        <KeyBadge>n</KeyBadge> <KeyBadge>p</KeyBadge> navigate changes <KeyBadge>@</KeyBadge> working copy{" "}
         <KeyBadge>{`${MOD}+1`}</KeyBadge> focus
       </StatusBar>
     </div>

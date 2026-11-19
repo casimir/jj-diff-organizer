@@ -1,5 +1,6 @@
 import { IS_MAC } from "@/platform";
-import { selectIsWorkingCopy, useGraphStore } from "@/store/graph";
+import { isWorkingCopy, useGraphStore } from "@/store/graph";
+import { useSelectionStore } from "@/store/selection";
 import { useTerminalStore } from "@/store/terminal";
 
 export const MOD = IS_MAC ? "⌘" : "Ctrl";
@@ -46,22 +47,52 @@ export function handleKey(e: KeyboardEvent): boolean {
   }
 
   if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return false;
-  const graph = useGraphStore.getState();
-  const reviewable = selectIsWorkingCopy(graph);
-  if (e.key === "n") graph.moveChange(1);
-  else if (e.key === "p") graph.moveChange(-1);
-  else if (e.key === "@") {
-    const wc = graph.changes.find((c) => c.wc);
-    if (wc) void graph.select(wc.change_id);
-  } else if (e.key === "j") graph.moveFile(1);
-  else if (e.key === "k") graph.moveFile(-1);
-  else if (e.key === "]") graph.moveCursor(1, false);
-  else if (e.key === "[") graph.moveCursor(-1, false);
-  else if (reviewable && e.key === "u") graph.moveCursor(1, true);
-  else if (e.key === " ") {
-    if (reviewable) void graph.toggleHunk();
+  const selection = useSelectionStore.getState();
+  const reviewable = isWorkingCopy(useGraphStore.getState(), selection.selection?.change);
+  switch (e.key) {
+    case "n":
+      selection.moveChange(1);
+      break;
+    case "p":
+      selection.moveChange(-1);
+      break;
+    case "@":
+      selection.selectWorkingCopy();
+      break;
+    case "j":
+      selection.moveFile(1);
+      break;
+    case "k":
+      selection.moveFile(-1);
+      break;
+    case "]":
+      selection.moveHunk(1, false);
+      break;
+    case "[":
+      selection.moveHunk(-1, false);
+      break;
+    case "u":
+      if (reviewable) {
+        selection.moveHunk(1, true);
+      }
+      break;
+    case " ":
+      if (reviewable) {
+        void selection.toggleHunk(true);
+      }
+      break;
+    case "R":
+      if (!reviewable) {
+        return false;
+      }
+
+      void selection.toggleFile();
+      break;
+    case "c":
+      selection.toggleCollapse();
+      break;
+    default:
+      return false;
   }
-  else if (reviewable && e.key === "R") void graph.toggleFile();
-  else return false;
   return true;
 }

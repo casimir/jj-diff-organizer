@@ -303,9 +303,9 @@ fn parse_lines<'a, T: DeserializeOwned>(
         .collect()
 }
 
-pub fn hunk_tool_config(exe: &Path, op: HunkOp, path: &str, digest: &str) -> Vec<String> {
+pub fn hunk_tool_config(exe: &Path, op: HunkOp, path: &str, key: &str) -> Vec<String> {
     let toml_str = |s: &str| serde_json::to_string(s).expect("a string always serializes");
-    let edit_args = [op.command(), "$left", "$right", path, digest]
+    let edit_args = [op.command(), "$left", "$right", path, key]
         .map(toml_str)
         .join(",");
     vec![

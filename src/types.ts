@@ -74,17 +74,26 @@ export interface DiffLine {
   old: number | null;
   new: number | null;
   kind: LineKind;
-  group: number | null;
   spans: Span[];
 }
+
+export const BlockKind = {
+  Hunk: "hunk",
+  Line: "line",
+} as const;
+export type BlockKind = (typeof BlockKind)[keyof typeof BlockKind];
+
+/** A hunk, identified by its key, or a line outside any hunk. */
+export type Block =
+  | { kind: typeof BlockKind.Hunk; key: string; lines: DiffLine[] }
+  | { kind: typeof BlockKind.Line; line: DiffLine };
 
 export interface FileView {
   path: string;
   old_path: string | null;
   status: FileStatus;
   binary: boolean;
-  digests: string[];
-  lines: DiffLine[];
+  blocks: Block[];
 }
 
 export type Marks = Record<string, string[]>;
@@ -95,8 +104,11 @@ export const HunkOp = {
 } as const;
 export type HunkOp = (typeof HunkOp)[keyof typeof HunkOp];
 
-export interface HunkRef {
-  op: HunkOp;
+export interface HunkId {
   path: string;
-  digest: string;
+  key: string;
+}
+
+export interface HunkRef extends HunkId {
+  op: HunkOp;
 }

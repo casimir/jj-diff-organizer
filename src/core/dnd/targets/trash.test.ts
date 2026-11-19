@@ -9,7 +9,7 @@ import { change } from "@/fixtures";
 const x = change("x");
 const dragX: DragObject = { kind: "change", change: x };
 const file: DragObject = { kind: "file", from: x, path: "src/a.ts", renamedFrom: null };
-const hunk: DragObject = { kind: "hunk", from: x, path: "src/a.ts", digest: "d1" };
+const hunk: DragObject = { kind: "hunk", from: x, path: "src/a.ts", key: "d1" };
 
 const commandOf = (object: DragObject, shift: boolean) => trashHandler(object, { slot: Slot.Onto, shift })?.command;
 const argsOf = (object: DragObject, shift: boolean) => {
@@ -40,7 +40,7 @@ describe("trashHandler", () => {
     expect(argsOf(hunk, true)).toEqual([
       "diffedit", "-r", "x", "--tool", HUNK_TOOL, "--restore-descendants", "src/a.ts",
     ]);
-    expect(commandOf(hunk, false)).toMatchObject({ hunk: { op: "revert", path: "src/a.ts", digest: "d1" } });
+    expect(commandOf(hunk, false)).toMatchObject({ hunk: { op: "revert", path: "src/a.ts", key: "d1" } });
   });
 
   it("refuses the working copy label and immutable changes", () => {

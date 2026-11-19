@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import type { DragObject } from "@/core/dnd/objects";
-import { hunkState, segments } from "@/core/hunks";
+import { diffStat, fileState, hunkState, isCollapsed } from "@/core/hunks";
+import { sameLeaf, showsHunks } from "@/core/selection";
 import { useDragObject } from "@/hooks/useDragObject";
-import { selectSelectedChange, useGraphStore } from "@/store/graph";
-import { FileStatus, LineKind, type DiffLine, type FileView } from "@/types";
+import { useDiffStore } from "@/store/diff";
+import { useSelectedChange, useSelectionStore } from "@/store/selection";
+import { BlockKind, FileStatus, LineKind, type DiffLine, type FileView } from "@/types";
 import { CopyButton } from "@/ui/components/CopyButton";
+import { Header } from "@/ui/components/Header";
+import { DiffStat } from "@/ui/widgets/DiffStat";
 import { ReviewDot } from "@/ui/widgets/ReviewDot";
 
 const TOKEN_CLASS: Record<string, string> = {
@@ -57,49 +62,48 @@ function Line({ line }: { line: DiffLine }) {
 
 const RAIL = "w-8 shrink-0";
 
-function Hunk({ file, group, lines, reviewable }: {
+function Hunk({ file, hunkKey, lines, reviewable }: {
   file: FileView;
-  group: number;
+  hunkKey: string;
   lines: DiffLine[];
   reviewable: boolean;
 }) {
-  const state = useGraphStore((s) => hunkState(file, s.marks, group));
-  const isCursor = useGraphStore((s) => s.cursor?.path === file.path && s.cursor.group === group);
+  const state = useDiffStore((s) => hunkState(file, s.marks, hunkKey));
+  const pos = { path: file.path, key: hunkKey };
+  const selected = useSelectionStore((s) => sameLeaf(s.selection?.file, { path: file.path, hunk: hunkKey }));
   const ref = useRef<HTMLDivElement>(null);
-  const change = useGraphStore(selectSelectedChange);
+  const change = useSelectedChange();
   const movable =
     !!change && !change.immutable && !file.binary && (file.status === FileStatus.Modified || file.status === FileStatus.Added);
   const object: DragObject | undefined = change && {
     kind: "hunk",
     from: change,
-    path: file.path,
-    digest: file.digests[group],
+    ...pos,
   };
-  const dragAttributes = useDragObject(`hunk:${file.path}:${group}`, ref, object, !movable);
-  useEffect(() => {
-    if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
-  }, [isCursor]);
+  const dragAttributes = useDragObject(`hunk:${file.path}:${hunkKey}`, ref, object, !movable);
 
-  const pos = { path: file.path, group };
   return (
     <div
       ref={ref}
-      onClick={() => useGraphStore.getState().setCursor(pos)}
+      onClick={() => useSelectionStore.getState().selectHunk(file.path, hunkKey)}
       {...dragAttributes}
-      data-cursor={isCursor || undefined}
+      data-leaf=""
+      data-path={file.path}
+      data-hunk={hunkKey}
+      data-selected={selected || undefined}
       className="flex scroll-mt-[calc(var(--diff-header-h)+1lh)] scroll-mb-[1lh]"
     >
-      {reviewable && (
-        <div className={`${RAIL} flex flex-col items-center gap-1 pt-1`}>
+      <div className={`${RAIL} flex items-center justify-center`}>
+        {reviewable && (
           <ReviewDot
             state={state}
             onClick={() => {
-              useGraphStore.getState().setCursor(pos);
-              void useGraphStore.getState().toggleHunk();
+              useSelectionStore.getState().selectHunk(file.path, hunkKey);
+              void useSelectionStore.getState().toggleHunk();
             }}
           />
-        </div>
-      )}
+        )}
+      </div>
       <div className="min-w-0 flex-1">
         {file.binary ? (
           <div className="px-2 py-1 text-dim">Binary file</div>
@@ -129,28 +133,58 @@ function FileTitle({ file }: { file: FileView }) {
 }
 
 function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean }) {
-  const blocks = useMemo(
-    () => (file.binary ? [{ group: 0, lines: [] }] : segments(file.lines)),
-    [file],
-  );
+  const stat = useMemo(() => diffStat([file]), [file]);
+  const collapsed = useDiffStore((s) => isCollapsed(file, s.marks, s.collapse, reviewable));
+  const state = useDiffStore((s) => fileState(file, s.marks));
+  const selected = useSelectionStore((s) => sameLeaf(s.selection?.file, { path: file.path }));
+  const isLeaf = !showsHunks(file, collapsed);
+  const Chevron = collapsed ? ChevronRight : ChevronDown;
   return (
     <section data-path={file.path}>
-      <div className="sticky top-0 z-(--z-sticky) flex h-(--diff-header-h) items-center border-b border-line bg-subtle px-2 font-sans">
-        <FileTitle file={file} />
-        <CopyButton text={file.path} label="Copy path" onError={useGraphStore.getState().reportDetailsError} />
-      </div>
-      {blocks.length === 0 && <div className="px-2 py-1 text-dim">No content changes</div>}
-      {blocks.map((block, i) =>
-        block.group === null ? (
-          <div key={i} className="flex">
-            {reviewable && <div className={RAIL} />}
-            <div className="min-w-0 flex-1">
-              <Line line={block.lines[0]} />
-            </div>
-          </div>
-        ) : (
-          <Hunk key={i} file={file} group={block.group} lines={block.lines} reviewable={reviewable} />
-        ),
+      <Header
+        data-leaf={isLeaf ? "" : undefined}
+        data-path={file.path}
+        data-selected={selected || undefined}
+        onClick={() => {
+          useSelectionStore.getState().selectFile(file.path);
+          useSelectionStore.getState().toggleCollapse(file.path);
+        }}
+        className="sticky top-0 z-(--z-sticky) cursor-pointer border-line bg-subtle"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <Chevron className="size-3.5 shrink-0 text-muted" />
+          {reviewable && state && (
+            <ReviewDot
+              state={state}
+              onClick={() => {
+                useSelectionStore.getState().selectFile(file.path);
+                void useSelectionStore.getState().toggleFile(file.path);
+              }}
+            />
+          )}
+          <FileTitle file={file} />
+          <CopyButton text={file.path} label="Copy path" onError={useDiffStore.getState().reportDetailsError} />
+        </div>
+        {!file.binary && <DiffStat {...stat} />}
+      </Header>
+      {!collapsed && (
+        <>
+          {file.blocks.length === 0 && (
+            <div className="px-2 py-1 text-dim">{file.binary ? "Binary file" : "No content changes"}</div>
+          )}
+          {file.blocks.map((block, i) =>
+            block.kind === BlockKind.Line ? (
+              <div key={i} className="flex">
+                <div className={RAIL} />
+                <div className="min-w-0 flex-1">
+                  <Line line={block.line} />
+                </div>
+              </div>
+            ) : (
+              <Hunk key={i} file={file} hunkKey={block.key} lines={block.lines} reviewable={reviewable} />
+            ),
+          )}
+        </>
       )}
     </section>
   );
@@ -158,27 +192,46 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
 
 export function DiffView({ files, reviewable }: { files: FileView[]; reviewable: boolean }) {
   const container = useRef<HTMLDivElement>(null);
-  const scrollRequest = useGraphStore((s) => s.scrollRequest);
-  const sections = () => Array.from(container.current?.children ?? []) as HTMLElement[];
+  const reveal = useSelectionStore((s) => s.reveal);
+  const marks = useDiffStore((s) => s.marks);
+  const collapse = useDiffStore((s) => s.collapse);
 
   useEffect(() => {
-    if (scrollRequest) sections().find((el) => el.dataset.path === scrollRequest.path)?.scrollIntoView({ block: "start" });
-  }, [scrollRequest]);
+    const selected = container.current?.querySelector("[data-selected]");
+    if (reveal?.target === "file") {
+      selected?.closest("section")?.scrollIntoView({ block: "start" });
+    } else if (reveal) {
+      selected?.scrollIntoView({ block: "nearest" });
+    }
+  }, [reveal]);
 
-  const onScroll = () => {
+  useEffect(() => {
     const root = container.current;
     if (!root) return;
 
-    const top = root.getBoundingClientRect().top;
-    const current = sections().filter((el) => el.getBoundingClientRect().top - top <= 1).at(-1)?.dataset.path;
-    const { selectedPath, spyFile } = useGraphStore.getState();
-    const atEnd = root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
-    const selectedVisible = sections().some((el) => el.dataset.path === selectedPath && el.getBoundingClientRect().bottom > top);
-    if (current && current !== selectedPath && !(atEnd && selectedVisible)) spyFile(current);
-  };
+    const visible = new Set<Element>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            visible.add(entry.target);
+          } else {
+            visible.delete(entry.target);
+          }
+        }
+        const leaves = Array.from(root.querySelectorAll<HTMLElement>("[data-leaf]")).flatMap((el) =>
+          visible.has(el) && el.dataset.path ? [{ path: el.dataset.path, hunk: el.dataset.hunk }] : [],
+        );
+        useSelectionStore.getState().scrolled(leaves);
+      },
+      { root },
+    );
+    root.querySelectorAll("[data-leaf]").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [files, marks, collapse]);
 
   return (
-    <div ref={container} onScroll={onScroll} className="h-full overflow-auto font-mono">
+    <div ref={container} className="h-full overflow-auto font-mono">
       {files.map((file) => (
         <FileDiff key={file.path} file={file} reviewable={reviewable} />
       ))}

@@ -24,9 +24,9 @@ export const trashHandler: Handler = (object, { shift }) => {
     case "hunk": {
       if (object.from.immutable) return null;
 
-      const { from, path, digest } = object;
+      const { from, path, key } = object;
       const args = ["diffedit", "-r", from.short, "--tool", HUNK_TOOL, ...keepDescendants, filesetPath(path)];
-      return onto(jj(args, { op: HunkOp.Revert, path, digest }));
+      return onto(jj(args, { op: HunkOp.Revert, path, key }));
     }
   }
 };

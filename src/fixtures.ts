@@ -1,4 +1,4 @@
-import type { Change } from "@/types";
+import { BlockKind, FileStatus, type Change, type FileView } from "@/types";
 
 export function change(id: string, overrides: Partial<Change> = {}): Change {
   return {
@@ -17,4 +17,9 @@ export function change(id: string, overrides: Partial<Change> = {}): Change {
     conflict: false,
     ...overrides,
   };
+}
+
+export function file(path: string, keys: string[]): FileView {
+  const blocks = keys.map((key) => ({ kind: BlockKind.Hunk, key, lines: [] }));
+  return { path, old_path: null, status: FileStatus.Modified, binary: false, blocks };
 }

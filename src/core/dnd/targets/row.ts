@@ -22,7 +22,7 @@ function squash(object: ReviewObject, target: Change, slot: Slot): Outcome | nul
     slot === Slot.Onto ? ["--into", target.short, "--use-destination-message"] : [insertFlag(slot), target.short];
   if (object.kind === "hunk") {
     const args = ["squash", "--from", from.short, ...destination, "--tool", HUNK_TOOL, filesetPath(object.path)];
-    return { slot, command: jj(args, { op: HunkOp.Keep, path: object.path, digest: object.digest }) };
+    return { slot, command: jj(args, { op: HunkOp.Keep, path: object.path, key: object.key }) };
   }
 
   return { slot, command: jj(["squash", "--from", from.short, ...destination, ...filesetPaths(object)]) };

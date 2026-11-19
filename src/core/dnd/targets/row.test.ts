@@ -76,7 +76,7 @@ describe("rowHandler", () => {
 
 describe("rowHandler for review items", () => {
   const file: DragObject = { kind: "file", from: x, path: "src/a.ts", renamedFrom: null };
-  const hunk: DragObject = { kind: "hunk", from: x, path: "src/a.ts", digest: "d1" };
+  const hunk: DragObject = { kind: "hunk", from: x, path: "src/a.ts", key: "d1" };
 
   it("squashes a file whole and a hunk through the diff editor", () => {
     expect(argsOf(file, y, Slot.Onto, false)).toEqual([
@@ -89,7 +89,7 @@ describe("rowHandler for review items", () => {
 
   it("keeps the hunk it squashes", () => {
     expect(outcomeOf(hunk, y, Slot.Onto, false)?.command).toMatchObject({
-      hunk: { op: "keep", path: "src/a.ts", digest: "d1" },
+      hunk: { op: "keep", path: "src/a.ts", key: "d1" },
     });
   });
 

@@ -6,8 +6,6 @@ use std::path::{Path, PathBuf};
 
 pub type FileMarks = BTreeMap<String, BTreeSet<String>>;
 
-/// Reviewed hunk fingerprints per file, one JSON file per change id in a directory inside the repo.
-/// Nothing is cached: files may be rewritten by a sync tool at any time.
 #[derive(Debug)]
 pub struct Store {
     dir: PathBuf,
@@ -23,7 +21,6 @@ impl Store {
         &self.dir
     }
 
-    /// A missing file is no marks; an unreadable or corrupt one is an error naming the file.
     pub fn marks(&self, change_id: &str) -> Result<FileMarks, String> {
         let path = self.file(change_id)?;
         match fs::read_to_string(&path) {
@@ -33,27 +30,46 @@ impl Store {
         }
     }
 
-    /// `current` holds every digest of the file's hunks now. Marks matching none of them are kept,
-    /// to flag edited hunks, until all current hunks are reviewed: that state is the new baseline.
-    pub fn set(
+    pub fn set_hunk(
         &self,
         change_id: &str,
         file: &str,
-        digests: &[String],
+        key: &str,
         reviewed: bool,
-        current: &[String],
+        shown_keys: &[String],
+    ) -> Result<(), String> {
+        self.update(change_id, file, &[key.to_owned()], reviewed, shown_keys)
+    }
+
+    pub fn set_file(
+        &self,
+        change_id: &str,
+        file: &str,
+        reviewed: bool,
+        shown_keys: &[String],
+    ) -> Result<(), String> {
+        self.update(change_id, file, shown_keys, reviewed, shown_keys)
+    }
+
+    fn update(
+        &self,
+        change_id: &str,
+        file: &str,
+        keys: &[String],
+        reviewed: bool,
+        shown_keys: &[String],
     ) -> Result<(), String> {
         let mut marks = self.marks(change_id)?;
         let entry = marks.entry(file.to_owned()).or_default();
-        for digest in digests {
+        for key in keys {
             if reviewed {
-                entry.insert(digest.clone());
+                entry.insert(key.clone());
             } else {
-                entry.remove(digest);
+                entry.remove(key);
             }
         }
-        if !current.is_empty() && current.iter().all(|d| entry.contains(d)) {
-            entry.retain(|d| current.contains(d));
+        if !shown_keys.is_empty() && shown_keys.iter().all(|d| entry.contains(d)) {
+            entry.retain(|d| shown_keys.contains(d));
         }
         if entry.is_empty() {
             marks.remove(file);
@@ -88,7 +104,7 @@ impl Store {
                 _ => Ok(()),
             };
         }
-        let text = serde_json::to_string_pretty(marks).map_err(at(&path))?;
+        let text = serde_json::to_string(marks).map_err(at(&path))?;
         let tmp = self.dir.join(format!(".{change_id}.json.tmp"));
         fs::write(&tmp, text).map_err(at(&tmp))?;
         fs::rename(&tmp, &path).map_err(at(&path))
@@ -99,12 +115,11 @@ fn at<E: Display>(path: &Path) -> impl Fn(E) -> String + '_ {
     move |e| format!("{}: {e}", path.display())
 }
 
-/// The change id of a marks file; `None` for anything else, temp files included.
-pub fn change_id_of(path: &Path) -> Option<String> {
-    if path.extension()? != "json" {
+pub fn change_id_of(marks_file: &Path) -> Option<String> {
+    if marks_file.extension()? != "json" {
         return None;
     }
-    let stem = path.file_stem()?.to_str()?;
+    let stem = marks_file.file_stem()?.to_str()?;
     (!stem.starts_with('.')).then(|| stem.to_owned())
 }
 
@@ -112,7 +127,7 @@ pub fn change_id_of(path: &Path) -> Option<String> {
 mod tests {
     use super::*;
 
-    fn digests(ds: &[&str]) -> Vec<String> {
+    fn keys(ds: &[&str]) -> Vec<String> {
         ds.iter().map(|d| (*d).to_owned()).collect()
     }
 
@@ -126,13 +141,10 @@ mod tests {
         let path = dir.path().join("reviews");
 
         let store = Store::open(path.clone()).unwrap();
-        let current = digests(&["d1", "d2", "d3"]);
-        store
-            .set("c1", "a.txt", &digests(&["d1", "d2"]), true, &current)
-            .unwrap();
-        store
-            .set("c1", "a.txt", &digests(&["d1"]), false, &current)
-            .unwrap();
+        let shown = keys(&["d1", "d2", "d3"]);
+        store.set_hunk("c1", "a.txt", "d1", true, &shown).unwrap();
+        store.set_hunk("c1", "a.txt", "d2", true, &shown).unwrap();
+        store.set_hunk("c1", "a.txt", "d1", false, &shown).unwrap();
 
         let reopened = Store::open(path.clone()).unwrap();
         assert_eq!(reopened.marks("c1").unwrap()["a.txt"], set_of(&["d2"]));
@@ -146,38 +158,50 @@ mod tests {
     fn unmarking_everything_removes_the_file() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path().join("reviews")).unwrap();
-        let current = digests(&["d1", "d2"]);
-        store
-            .set("c1", "a.txt", &digests(&["d1"]), true, &current)
-            .unwrap();
+        let shown = keys(&["d1", "d2"]);
+        store.set_hunk("c1", "a.txt", "d1", true, &shown).unwrap();
         assert!(store.dir().join("c1.json").exists());
 
-        store
-            .set("c1", "a.txt", &digests(&["d1"]), false, &current)
-            .unwrap();
+        store.set_hunk("c1", "a.txt", "d1", false, &shown).unwrap();
         assert!(!store.dir().join("c1.json").exists());
     }
 
     #[test]
-    fn stale_marks_go_once_every_current_hunk_is_reviewed() {
+    fn a_file_is_marked_as_a_whole_and_unmarking_it_keeps_stale_marks() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path().join("reviews")).unwrap();
-        let current = digests(&["new1", "new2"]);
-        store
-            .set("c1", "a.txt", &digests(&["old"]), true, &digests(&["old"]))
-            .unwrap();
+        let shown = keys(&["new1", "new2"]);
+
+        store.set_file("c1", "b.txt", true, &shown).unwrap();
+        assert_eq!(
+            store.marks("c1").unwrap()["b.txt"],
+            set_of(&["new1", "new2"])
+        );
 
         store
-            .set("c1", "a.txt", &digests(&["new1"]), true, &current)
+            .set_hunk("c1", "a.txt", "old", true, &keys(&["old"]))
             .unwrap();
+        store.set_hunk("c1", "a.txt", "new1", true, &shown).unwrap();
+        store.set_file("c1", "a.txt", false, &shown).unwrap();
+        assert_eq!(store.marks("c1").unwrap()["a.txt"], set_of(&["old"]));
+    }
+
+    #[test]
+    fn stale_marks_go_once_every_shown_hunk_is_reviewed() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path().join("reviews")).unwrap();
+        let shown = keys(&["new1", "new2"]);
+        store
+            .set_hunk("c1", "a.txt", "old", true, &keys(&["old"]))
+            .unwrap();
+
+        store.set_hunk("c1", "a.txt", "new1", true, &shown).unwrap();
         assert_eq!(
             store.marks("c1").unwrap()["a.txt"],
             set_of(&["old", "new1"])
         );
 
-        store
-            .set("c1", "a.txt", &digests(&["new2"]), true, &current)
-            .unwrap();
+        store.set_hunk("c1", "a.txt", "new2", true, &shown).unwrap();
         assert_eq!(
             store.marks("c1").unwrap()["a.txt"],
             set_of(&["new1", "new2"])
@@ -188,9 +212,8 @@ mod tests {
     fn prune_keeps_only_live_changes() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path().join("reviews")).unwrap();
-        let current = digests(&["d1"]);
-        store.set("live", "a.txt", &current, true, &[]).unwrap();
-        store.set("gone", "a.txt", &current, true, &[]).unwrap();
+        store.set_hunk("live", "a.txt", "d1", true, &[]).unwrap();
+        store.set_hunk("gone", "a.txt", "d1", true, &[]).unwrap();
 
         store.prune(&set_of(&["live"])).unwrap();
 

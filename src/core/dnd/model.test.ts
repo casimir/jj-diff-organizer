@@ -26,6 +26,6 @@ describe("accepts", () => {
 
   it("is false when no context accepts the object", () => {
     expect(accepts(rowHandler(x), dragX)).toBe(false);
-    expect(accepts(terminalHandler, { kind: "hunk", from: x, path: "a", digest: "d" })).toBe(false);
+    expect(accepts(terminalHandler, { kind: "hunk", from: x, path: "a", key: "d" })).toBe(false);
   });
 });

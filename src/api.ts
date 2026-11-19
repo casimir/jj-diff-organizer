@@ -16,8 +16,10 @@ export const successors = (revset: string, changeId: string) =>
   invoke<string[]>("successors", { revset, changeId });
 export const show = (changeId: string) => invoke<FileView[]>("show", { changeId });
 export const marks = (changeId: string) => invoke<Marks>("marks", { changeId });
-export const reviewSet = (changeId: string, path: string, digests: string[], reviewed: boolean, current: string[]) =>
-  invoke<void>("review_set", { changeId, path, digests, reviewed, current });
+export const reviewSetHunk = (changeId: string, path: string, key: string, reviewed: boolean, shownKeys: string[]) =>
+  invoke<void>("review_set_hunk", { changeId, path, key, reviewed, shownKeys });
+export const reviewSetFile = (changeId: string, path: string, reviewed: boolean, shownKeys: string[]) =>
+  invoke<void>("review_set_file", { changeId, path, reviewed, shownKeys });
 export const history = () => invoke<Entry[]>("history");
 export const runJj = (args: string[], hunk?: HunkRef) => invoke<Run>("run_jj", { args, hunk });
 

@@ -1,7 +1,7 @@
-use jj_diff::{DiffSpanStyle, SyntaxToken, build_diff_display_lines, compute_file_diff};
+use jj_diff::{DiffLine, DiffSpanStyle, SyntaxToken, build_diff_display_lines, compute_file_diff};
 use serde::Serialize;
 
-use crate::hunk::{hunk_digests, hunk_groups};
+use crate::hunk::display_keys;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -12,7 +12,6 @@ pub enum Status {
     Renamed,
 }
 
-/// Both sides of one file, rebuilt from a full-context git diff.
 #[derive(Debug, PartialEq, Eq)]
 pub struct FilePair {
     pub path: String,
@@ -31,8 +30,14 @@ pub struct FileView {
     pub old_path: Option<String>,
     pub status: Status,
     pub binary: bool,
-    pub digests: Vec<String>,
-    pub lines: Vec<LineView>,
+    pub blocks: Vec<Block>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum Block {
+    Hunk { key: String, lines: Vec<LineView> },
+    Line { line: LineView },
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -49,8 +54,6 @@ pub struct LineView {
     pub old: Option<u32>,
     pub new: Option<u32>,
     pub kind: LineKind,
-    /// Index into `FileView::digests`, for the lines of a hunk.
-    pub group: Option<usize>,
     pub spans: Vec<SpanView>,
 }
 
@@ -181,51 +184,70 @@ pub fn file_view(pair: FilePair) -> FileView {
             old_path: pair.old_path,
             status: pair.status,
             binary: true,
-            digests: pair.blob.into_iter().collect(),
-            lines: Vec::new(),
+            blocks: pair
+                .blob
+                .into_iter()
+                .map(|key| Block::Hunk {
+                    key,
+                    lines: Vec::new(),
+                })
+                .collect(),
         };
     }
 
     let diff = compute_file_diff(&pair.path, &pair.old_content, &pair.content, false);
     let display_lines = build_diff_display_lines(&diff.lines);
-    let groups = hunk_groups(display_lines.iter().map(|l| l.is_changed()));
-    let lines = display_lines
-        .iter()
-        .zip(groups)
-        .map(|(line, group)| LineView {
-            old: line.old_line_no,
-            new: line.new_line_no,
-            kind: match line.style {
-                DiffSpanStyle::Added => LineKind::Added,
-                DiffSpanStyle::Removed => LineKind::Removed,
-                DiffSpanStyle::Separator => LineKind::Separator,
-                DiffSpanStyle::Context | DiffSpanStyle::Unchanged => LineKind::Context,
-            },
-            group,
-            spans: line
-                .spans
-                .iter()
-                .map(|s| SpanView {
-                    text: s.text.clone(),
-                    token: token_name(s.token),
-                })
-                .collect(),
-        })
-        .collect();
+    let mut keys = display_keys(&pair.old_content, &pair.content).into_iter();
+    let mut blocks: Vec<Block> = Vec::new();
+    for display_line in &display_lines {
+        let line = line_view(display_line);
+        if !display_line.is_changed() {
+            blocks.push(Block::Line { line });
+        } else if let Some(Block::Hunk { lines, .. }) = blocks.last_mut() {
+            lines.push(line);
+        } else {
+            let key = keys.next().expect("every displayed hunk has a key");
+            blocks.push(Block::Hunk {
+                key,
+                lines: vec![line],
+            });
+        }
+    }
 
     FileView {
-        digests: hunk_digests(&pair.old_content, &pair.content),
         path: pair.path,
         old_path: pair.old_path,
         status: pair.status,
         binary: false,
-        lines,
+        blocks,
+    }
+}
+
+fn line_view(line: &DiffLine) -> LineView {
+    LineView {
+        old: line.old_line_no,
+        new: line.new_line_no,
+        kind: match line.style {
+            DiffSpanStyle::Added => LineKind::Added,
+            DiffSpanStyle::Removed => LineKind::Removed,
+            DiffSpanStyle::Separator => LineKind::Separator,
+            DiffSpanStyle::Context | DiffSpanStyle::Unchanged => LineKind::Context,
+        },
+        spans: line
+            .spans
+            .iter()
+            .map(|s| SpanView {
+                text: s.text.clone(),
+                token: token_name(s.token),
+            })
+            .collect(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hunk::hunk_keys;
 
     fn numbered(edits: &[(usize, &str)]) -> String {
         (1..=30)
@@ -237,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn displayed_groups_match_the_fingerprints_that_marks_and_moves_use() {
+    fn displayed_hunks_carry_the_keys_that_marks_and_moves_use() {
         let old = numbered(&[]);
         let new = numbered(&[
             (2, "edited 2"),
@@ -245,6 +267,7 @@ mod tests {
             (15, "edited 15"),
             (29, "edited 29"),
         ]);
+        let expected = hunk_keys(&old, &new);
         let pair = FilePair {
             path: "a.txt".into(),
             old_path: None,
@@ -257,10 +280,15 @@ mod tests {
 
         let view = file_view(pair);
 
-        let mut groups: Vec<usize> = view.lines.iter().filter_map(|l| l.group).collect();
-        groups.dedup();
-        assert_eq!(groups, [0, 1, 2]);
-        assert_eq!(view.digests.len(), 3);
+        let keys: Vec<&str> = view
+            .blocks
+            .iter()
+            .filter_map(|b| match b {
+                Block::Hunk { key, .. } => Some(key.as_str()),
+                Block::Line { .. } => None,
+            })
+            .collect();
+        assert_eq!(keys, expected);
     }
 
     #[test]

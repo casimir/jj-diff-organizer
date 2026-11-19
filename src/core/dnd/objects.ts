@@ -1,11 +1,11 @@
-import type { Change } from "@/types";
+import type { Change, HunkId } from "@/types";
 
 export type DragObject =
   | { kind: "change"; change: Change }
   | { kind: "bookmark"; name: string }
   | { kind: "wc"; change: Change }
   | { kind: "file"; from: Change; path: string; renamedFrom: string | null }
-  | { kind: "hunk"; from: Change; path: string; digest: string };
+  | ({ kind: "hunk"; from: Change } & HunkId);
 
 export function labelOf(object: DragObject): string {
   switch (object.kind) {
