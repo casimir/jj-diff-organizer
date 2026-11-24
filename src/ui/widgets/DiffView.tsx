@@ -163,6 +163,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
             />
           )}
           <FileTitle file={file} />
+          {file.generated && <span className="text-muted">generated</span>}
           <CopyButton text={file.path} label="Copy path" onError={useDiffStore.getState().reportDetailsError} />
         </div>
         {!file.binary && <DiffStat {...stat} />}

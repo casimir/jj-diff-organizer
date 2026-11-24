@@ -4,6 +4,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use jjdo_core::diff::Status;
+use jjdo_core::generated::generated_paths;
 use jjdo_core::hunk::{HunkOp, hunk_keys};
 use jjdo_core::jj::{HUNK_TOOL, Jj, hunk_tool_config};
 use jjdo_core::repo::Repo;
@@ -307,7 +308,7 @@ fn parsed_diff_rebuilds_both_sides_exactly_as_jj_stores_them() {
     write("bin.dat", b"a\0c");
     jj_ok(p, &["status"]);
 
-    let pairs = Jj::new(Repo::discover(p).unwrap()).diff("@").unwrap();
+    let pairs = Jj::new(Repo::discover(p).unwrap()).diff("@").unwrap().pairs;
 
     assert_eq!(pairs.len(), 7);
     for pair in &pairs {
@@ -340,6 +341,53 @@ fn parsed_diff_rebuilds_both_sides_exactly_as_jj_stores_them() {
 }
 
 #[test]
+fn generated_files_follow_the_gitattributes_of_the_diffed_change() {
+    let dir = init_repo();
+    let p = dir.path();
+    std::fs::create_dir_all(p.join("gen")).unwrap();
+    for name in [
+        "Cargo.lock",
+        "gen/out.rs",
+        "keep.rs",
+        "pubspec.lock",
+        "src.rs",
+    ] {
+        std::fs::write(p.join(name), "x\n").unwrap();
+    }
+    jj_ok(p, &["commit", "-m", "before"]);
+    std::fs::write(
+        p.join(".gitattributes"),
+        "Cargo.lock linguist-generated=true\npubspec.lock gitlab-generated\nkeep.rs -linguist-generated\n",
+    )
+    .unwrap();
+    std::fs::write(p.join("gen/.gitattributes"), "* linguist-generated\n").unwrap();
+    std::fs::write(p.join("src.rs"), "y\n").unwrap();
+    jj_ok(p, &["commit", "-m", "attrs"]);
+    let jj = Jj::new(Repo::discover(p).unwrap());
+    assert!(jj.repo().git_dir.is_some(), "git 2.40 or newer is required");
+    let paths = [
+        "Cargo.lock",
+        "gen/out.rs",
+        "keep.rs",
+        "pubspec.lock",
+        "src.rs",
+    ];
+
+    let with_attrs = jj.diff("@-").unwrap();
+    let before = jj.diff("@--").unwrap();
+
+    let found = generated_paths(jj.repo(), &with_attrs.commit_id, &paths).unwrap();
+    assert_eq!(
+        found,
+        ["Cargo.lock", "gen/out.rs", "pubspec.lock"]
+            .map(String::from)
+            .into()
+    );
+    let found = generated_paths(jj.repo(), &before.commit_id, &paths).unwrap();
+    assert!(found.is_empty());
+}
+
+#[test]
 fn a_pure_rename_keeps_its_source_path_and_has_no_content_change() {
     let dir = init_repo();
     let p = dir.path();
@@ -348,7 +396,7 @@ fn a_pure_rename_keeps_its_source_path_and_has_no_content_change() {
     std::fs::rename(p.join("old.txt"), p.join("new.txt")).unwrap();
     jj_ok(p, &["status"]);
 
-    let pairs = Jj::new(Repo::discover(p).unwrap()).diff("@").unwrap();
+    let pairs = Jj::new(Repo::discover(p).unwrap()).diff("@").unwrap().pairs;
 
     assert_eq!(pairs.len(), 1);
     assert_eq!(pairs[0].status, Status::Renamed);

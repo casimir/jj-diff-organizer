@@ -123,6 +123,13 @@ const READ_FLAGS: [&str; 4] = [
     "--ignore-working-copy",
 ];
 
+/// A change's diff with the commit it was read from.
+#[derive(Debug)]
+pub struct ChangeDiff {
+    pub commit_id: String,
+    pub pairs: Vec<FilePair>,
+}
+
 #[derive(Debug)]
 pub struct Jj {
     repo: Repo,
@@ -254,19 +261,29 @@ impl Jj {
             .collect()
     }
 
-    pub fn diff(&self, rev: &str) -> Result<Vec<FilePair>, String> {
+    pub fn diff(&self, rev: &str) -> Result<ChangeDiff, String> {
         let out = self.read_bytes(
             &READ_FLAGS,
             &[
-                "diff",
+                "log",
+                "--no-graph",
+                "--revisions",
+                rev,
+                "--template",
+                r#"commit_id ++ "\n""#,
                 "--git",
                 "--context",
                 FULL_CONTEXT,
-                "--revisions",
-                rev,
             ],
         )?;
-        Ok(parse_git_diff(&out))
+        let end = out
+            .iter()
+            .position(|&b| b == b'\n')
+            .ok_or_else(|| format!("no commit for {rev}"))?;
+        Ok(ChangeDiff {
+            commit_id: String::from_utf8_lossy(&out[..end]).into_owned(),
+            pairs: parse_git_diff(&out[end + 1..]),
+        })
     }
 
     fn command(&self, flags: &[&str]) -> Command {

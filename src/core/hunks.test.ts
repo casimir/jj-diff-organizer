@@ -25,6 +25,13 @@ describe("isCollapsed", () => {
     expect(isCollapsed(reviewed, marks, { "a.txt": false }, true)).toBe(false);
     expect(isCollapsed(reviewed, marks, {}, false)).toBe(false);
   });
+
+  it("collapses a generated file by default, reviewable or not, unless a toggle says otherwise", () => {
+    const lock = file("Cargo.lock", ["d1"], { generated: true });
+    expect(isCollapsed(lock, {}, {}, true)).toBe(true);
+    expect(isCollapsed(lock, {}, {}, false)).toBe(true);
+    expect(isCollapsed(lock, {}, { "Cargo.lock": false }, true)).toBe(false);
+  });
 });
 
 describe("pruneCollapseOverrides", () => {

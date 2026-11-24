@@ -93,6 +93,7 @@ export interface FileView {
   old_path: string | null;
   status: FileStatus;
   binary: boolean;
+  generated: boolean;
   blocks: Block[];
 }
 

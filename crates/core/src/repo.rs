@@ -1,17 +1,22 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::shell_path::jj_command;
+use crate::shell_path::{git_command, jj_command};
 
 #[derive(Debug, Clone)]
 pub struct Repo {
     pub root: PathBuf,
     /// `.jj/repo` of the main workspace; differs from `root/.jj/repo` in secondary workspaces.
     pub repo_dir: PathBuf,
+    /// Git directory of the backing store, set only when git can read attributes from a commit (see [`MIN_GIT_VERSION`]).
+    pub git_dir: Option<PathBuf>,
 }
 
 /// `json()` map literals, used by the change template, arrived in this jj version.
 const MIN_JJ_VERSION: (u32, u32) = (0, 46);
+
+/// `git check-attr --source` arrived in this git version.
+const MIN_GIT_VERSION: (u32, u32) = (2, 40);
 
 impl Repo {
     pub fn discover(start: &Path) -> Result<Self, String> {
@@ -26,7 +31,12 @@ impl Repo {
         }
         let root = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
         let repo_dir = resolve_repo_dir(&root)?;
-        Ok(Self { root, repo_dir })
+        let git_dir = git_dir(&repo_dir);
+        Ok(Self {
+            root,
+            repo_dir,
+            git_dir,
+        })
     }
 
     pub fn op_heads_dir(&self) -> PathBuf {
@@ -54,8 +64,10 @@ fn check_jj_version() -> Result<(), String> {
         .map_err(|e| format!("cannot run jj: {e}"))?;
     let text = String::from_utf8_lossy(&out.stdout);
     let version = text.trim();
-    let found =
-        parse_version(version).ok_or_else(|| format!("unrecognized jj version: {version}"))?;
+    let found = version
+        .strip_prefix("jj ")
+        .and_then(major_minor)
+        .ok_or_else(|| format!("unrecognized jj version: {version}"))?;
     if found < MIN_JJ_VERSION {
         return Err(format!(
             "jj {}.{} or newer is required, found {version}",
@@ -65,10 +77,31 @@ fn check_jj_version() -> Result<(), String> {
     Ok(())
 }
 
-/// `(major, minor)` of a `jj 0.46.0-<hash>` line.
-fn parse_version(line: &str) -> Option<(u32, u32)> {
-    let mut parts = line.strip_prefix("jj ")?.split(['.', '-']);
+/// `(major, minor)` of a dotted version, whatever follows them.
+fn major_minor(version: &str) -> Option<(u32, u32)> {
+    let mut parts = version.split('.');
     Some((parts.next()?.parse().ok()?, parts.next()?.parse().ok()?))
+}
+
+/// The store's git directory, when the backend is git and the installed git can read attributes from a commit.
+fn git_dir(repo_dir: &Path) -> Option<PathBuf> {
+    let store = repo_dir.join("store");
+    let target = fs::read_to_string(store.join("git_target")).ok()?;
+    let dir = store.join(target.trim()).canonicalize().ok()?;
+    git_reads_attributes_from_commits().then_some(dir)
+}
+
+fn git_reads_attributes_from_commits() -> bool {
+    let Ok(out) = git_command().arg("--version").output() else {
+        return false;
+    };
+    let text = String::from_utf8_lossy(&out.stdout);
+    out.status.success()
+        && text
+            .trim()
+            .strip_prefix("git version ")
+            .and_then(major_minor)
+            .is_some_and(|v| v >= MIN_GIT_VERSION)
 }
 
 fn resolve_repo_dir(root: &Path) -> Result<PathBuf, String> {
@@ -93,8 +126,15 @@ mod tests {
         let repo = Repo {
             root: tmp.path().to_owned(),
             repo_dir: tmp.path().join("missing"),
+            git_dir: None,
         };
 
         assert!(repo.op_heads().unwrap_err().contains("op_heads"));
+    }
+
+    #[test]
+    fn the_version_is_read_before_the_hash_or_vendor_suffix() {
+        assert_eq!(major_minor("0.46.0-abc123"), Some((0, 46)));
+        assert_eq!(major_minor("2.54.0 (Apple Git-157)"), Some((2, 54)));
     }
 }

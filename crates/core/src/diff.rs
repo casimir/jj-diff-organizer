@@ -30,6 +30,7 @@ pub struct FileView {
     pub old_path: Option<String>,
     pub status: Status,
     pub binary: bool,
+    pub generated: bool,
     pub blocks: Vec<Block>,
 }
 
@@ -177,13 +178,14 @@ fn token_name(token: SyntaxToken) -> &'static str {
     }
 }
 
-pub fn file_view(pair: FilePair) -> FileView {
+pub fn file_view(pair: FilePair, generated: bool) -> FileView {
     if pair.binary {
         return FileView {
             path: pair.path,
             old_path: pair.old_path,
             status: pair.status,
             binary: true,
+            generated,
             blocks: pair
                 .blob
                 .into_iter()
@@ -219,6 +221,7 @@ pub fn file_view(pair: FilePair) -> FileView {
         old_path: pair.old_path,
         status: pair.status,
         binary: false,
+        generated,
         blocks,
     }
 }
@@ -278,7 +281,7 @@ mod tests {
             blob: None,
         };
 
-        let view = file_view(pair);
+        let view = file_view(pair, false);
 
         let keys: Vec<&str> = view
             .blocks

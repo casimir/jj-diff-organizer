@@ -1,4 +1,5 @@
 pub mod diff;
+pub mod generated;
 pub mod history;
 pub mod hunk;
 pub mod jj;

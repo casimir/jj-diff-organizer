@@ -19,7 +19,7 @@ export function change(id: string, overrides: Partial<Change> = {}): Change {
   };
 }
 
-export function file(path: string, keys: string[]): FileView {
+export function file(path: string, keys: string[], overrides: Partial<FileView> = {}): FileView {
   const blocks = keys.map((key) => ({ kind: BlockKind.Hunk, key, lines: [] }));
-  return { path, old_path: null, status: FileStatus.Modified, binary: false, blocks };
+  return { path, old_path: null, status: FileStatus.Modified, binary: false, generated: false, blocks, ...overrides };
 }

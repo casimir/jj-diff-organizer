@@ -34,7 +34,11 @@ export function isCollapsed(
   collapse: Record<string, boolean>,
   reviewable: boolean,
 ): boolean {
-  return collapse[file.path] ?? (reviewable && fileState(file, marks) === HunkState.Reviewed);
+  const review = reviewable && fileState(file, marks) === HunkState.Reviewed;
+  const automatic = file.generated || review;
+  const manual = collapse[file.path];
+
+  return manual ?? automatic;
 }
 
 interface Snapshot {

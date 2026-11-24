@@ -4,9 +4,17 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 pub(crate) fn jj_command() -> Command {
+    command("jj")
+}
+
+pub(crate) fn git_command() -> Command {
+    command("git")
+}
+
+fn command(program: &str) -> Command {
     static PATH: OnceLock<OsString> = OnceLock::new();
     let path = PATH.get_or_init(resolve);
-    let mut cmd = Command::new("jj");
+    let mut cmd = Command::new(program);
     cmd.env("PATH", path);
     cmd
 }

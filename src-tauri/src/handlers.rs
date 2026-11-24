@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use jjdo_core::diff::{FileView, file_view};
+use jjdo_core::generated::generated_paths;
 use jjdo_core::history::Entry;
 use jjdo_core::hunk::HunkOp;
 use jjdo_core::jj::{Change, Run, hunk_tool_config};
@@ -90,10 +91,18 @@ pub fn show(
     sessions: State<'_, Sessions>,
     change_id: String,
 ) -> Result<Vec<FileView>, String> {
-    session_for(&sessions, &window)?
-        .jj
-        .diff(&change_id)
-        .map(|pairs| pairs.into_iter().map(file_view).collect())
+    let jj = &session_for(&sessions, &window)?.jj;
+    let diff = jj.diff(&change_id)?;
+    let paths: Vec<&str> = diff.pairs.iter().map(|p| p.path.as_str()).collect();
+    let generated = generated_paths(jj.repo(), &diff.commit_id, &paths)?;
+    Ok(diff
+        .pairs
+        .into_iter()
+        .map(|pair| {
+            let is_generated = generated.contains(&pair.path);
+            file_view(pair, is_generated)
+        })
+        .collect())
 }
 
 #[tauri::command(async)]
