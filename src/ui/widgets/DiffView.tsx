@@ -85,7 +85,7 @@ function Hunk({ file, hunkKey, lines, reviewable }: {
   const ref = useRef<HTMLDivElement>(null);
   const change = useSelectedChange();
   const movable =
-    !!change && !change.immutable && !file.binary && (file.status === FileStatus.Modified || file.status === FileStatus.Added);
+    !!change && !change.immutable && lines.length > 0 && (file.status === FileStatus.Modified || file.status === FileStatus.Added);
   const object: DragObject | undefined = change && {
     kind: "hunk",
     from: change,
@@ -115,12 +115,30 @@ function Hunk({ file, hunkKey, lines, reviewable }: {
         )
       }
     >
-      {file.binary ? <Notice>Binary file</Notice> : lines.map((line, i) => <Line key={i} line={line} />)}
+      {lines.length === 0 ? (
+        <Notice>{file.binary ? "Binary file" : "No content changes"}</Notice>
+      ) : (
+        lines.map((line, i) => <Line key={i} line={line} />)
+      )}
     </Gutter>
   );
 }
 
 function FileTitle({ file }: { file: FileView }) {
+  return (
+    <>
+      <FilePath file={file} />
+      {file.old_mode && file.mode && (
+        <span className="text-muted">
+          {" "}
+          {file.old_mode} → {file.mode}
+        </span>
+      )}
+    </>
+  );
+}
+
+function FilePath({ file }: { file: FileView }) {
   if (!file.old_path) return file.path;
   if (file.status === FileStatus.Renamed) {
     return (
@@ -175,7 +193,6 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
       </Header>
       {!collapsed && (
         <>
-          {file.blocks.length === 0 && <Notice>{file.binary ? "Binary file" : "No content changes"}</Notice>}
           {file.blocks.map((block, i) =>
             block.kind === BlockKind.Line ? (
               <Gutter key={i}>

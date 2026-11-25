@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { HunkState, fileState, filesState, hunkState, isCollapsed, needsReview, pruneCollapseOverrides, reviewProgress } from "@/core/hunks";
 import { file } from "@/fixtures";
-import { FileStatus } from "@/types";
 
 describe("hunkState", () => {
   it("flags an unreviewed hunk as changed when a marked hunk of its file no longer exists", () => {
@@ -28,12 +27,6 @@ describe("fileState and filesState", () => {
     expect(filesState([a, b], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(HunkState.Reviewed);
     expect(filesState([a, file("b.txt", ["b1-edited"])], { "b.txt": ["b1"] })).toBe(HunkState.Changed);
   });
-
-  it("ignores files without hunks", () => {
-    const renamed = file("new.txt", [], { status: FileStatus.Renamed, old_path: "old.txt" });
-    expect(filesState([renamed], {})).toBeNull();
-    expect(filesState([renamed, b], { "b.txt": ["b1"] })).toBe(HunkState.Reviewed);
-  });
 });
 
 describe("needsReview", () => {
@@ -48,17 +41,16 @@ describe("needsReview", () => {
 describe("reviewProgress", () => {
   const a = file("a.txt", ["a1", "a2"]);
   const b = file("b.txt", ["b1"]);
-  const renamed = file("new.txt", [], { status: FileStatus.Renamed, old_path: "old.txt" });
 
-  it("is null until a file is reviewed, even with hunkless files", () => {
-    expect(reviewProgress([a, b, renamed], {})).toBeNull();
-    expect(reviewProgress([a, b, renamed], { "a.txt": ["a1"] })).toBeNull();
+  it("is null until a file is reviewed", () => {
+    expect(reviewProgress([a, b], {})).toBeNull();
+    expect(reviewProgress([a, b], { "a.txt": ["a1"] })).toBeNull();
   });
 
-  it("counts only files with nothing left, hunkless ones included", () => {
-    expect(reviewProgress([a, b, renamed], { "b.txt": ["b1"] })).toBe(2);
-    expect(reviewProgress([a, file("b.txt", ["b1-edited"]), renamed], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(2);
-    expect(reviewProgress([a, b, renamed], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(3);
+  it("counts only files with nothing left to review", () => {
+    expect(reviewProgress([a, b], { "b.txt": ["b1"] })).toBe(1);
+    expect(reviewProgress([a, file("b.txt", ["b1-edited"])], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(1);
+    expect(reviewProgress([a, b], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(2);
   });
 });
 

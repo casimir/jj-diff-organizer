@@ -44,6 +44,11 @@ lines gamma > docs/gamma.txt
 lines zeta > "$deep"
 lines readme > README.md
 lines lock > Cargo.lock
+echo '*.lock linguist-generated' > .gitattributes
+lines rename > src/rename-me.txt
+lines chmod > src/chmod-me.txt
+lines both > src/both.txt
+: > src/delete-empty.txt
 age $((6 * 7 * DAY))
 jj describe -m "base" >/dev/null
 
@@ -126,7 +131,7 @@ before_divergence="$(jj op log --no-graph -n1 -T 'id.short()')"
 jj describe -m "divergent: side one" >/dev/null
 jj --at-op "$before_divergence" describe -m "divergent: side two" >/dev/null 2>&1
 
-jj new feat-a -m "wip: beta in two places, gamma, alpha adjacent lines" >/dev/null
+jj new feat-a -m "wip: beta in two places, gamma, alpha adjacent lines, metadata-only changes" >/dev/null
 edit src/ui/beta.txt 12 "beta line 12 (wip)"
 edit src/ui/beta.txt 27 "beta line 27 (wip)"
 edit docs/gamma.txt 10 "gamma line 10 (wip)"
@@ -137,6 +142,12 @@ edit src/ui/epsilon.txt 20 "epsilon line 20 (wip)"
 edit "$deep" 5 "zeta line 5 (wip)"
 edit README.md 3 "readme line 3 (wip)"
 edit Cargo.lock 10 "lock line 10 (wip)"
+mv src/rename-me.txt src/renamed.txt
+chmod +x src/chmod-me.txt
+mv src/both.txt src/both-renamed.txt
+chmod +x src/both-renamed.txt
+rm src/delete-empty.txt
+: > src/add-empty.txt
 
 cd "$root"
 rm -rf "$repo"

@@ -34,15 +34,12 @@ export function filesState(files: FileView[], marks: Marks): HunkState | null {
 export const fileState = (file: FileView, marks: Marks): HunkState | null => filesState([file], marks);
 
 /**
- * Returns how many of `files` have nothing left to review, or `null` while none is reviewed.
- *
- * @remarks Files without hunks count as done: they have nothing to review.
+ * Returns how many of `files` are reviewed, or `null` while none is.
  */
 export function reviewProgress(files: FileView[], marks: Marks): number | null {
-  const states = files.map((file) => fileState(file, marks));
-  if (!states.includes(HunkState.Reviewed)) return null;
+  const reviewed = files.filter((file) => fileState(file, marks) === HunkState.Reviewed).length;
 
-  return states.filter((s) => s === HunkState.Reviewed || s === null).length;
+  return reviewed === 0 ? null : reviewed;
 }
 
 /** Returns whether a review action on `files` marks them, rather than clears them. */

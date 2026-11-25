@@ -92,6 +92,8 @@ export type Block =
 export interface FileView {
   path: string;
   old_path: string | null;
+  old_mode: string | null;
+  mode: string | null;
   status: FileStatus;
   binary: boolean;
   generated: boolean;

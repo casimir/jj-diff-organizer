@@ -1,5 +1,6 @@
 use jj_diff::{DiffLine, DiffSpanStyle, SyntaxToken, build_diff_display_lines, compute_file_diff};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use crate::hunk::display_keys;
 
@@ -20,14 +21,17 @@ pub struct FilePair {
     pub content: String,
     pub old_content: String,
     pub binary: bool,
-    /// Blob id of the new side, the identity of a binary file's only "hunk".
     pub blob: Option<String>,
+    pub old_mode: Option<String>,
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct FileView {
     pub path: String,
     pub old_path: Option<String>,
+    pub old_mode: Option<String>,
+    pub mode: Option<String>,
     pub status: Status,
     pub binary: bool,
     pub generated: bool,
@@ -98,6 +102,8 @@ fn parse_section(section: &[u8]) -> FilePair {
         old_content: String::new(),
         binary: std::str::from_utf8(section).is_err(),
         blob: None,
+        old_mode: None,
+        mode: None,
     };
     let mut in_hunk = false;
     let mut last = ' ';
@@ -128,6 +134,10 @@ fn parse_section(section: &[u8]) -> FilePair {
             }
         } else if line.starts_with("@@") {
             in_hunk = true;
+        } else if let Some(mode) = line.strip_prefix("old mode ") {
+            pair.old_mode = Some(mode.to_owned());
+        } else if let Some(mode) = line.strip_prefix("new mode ") {
+            pair.mode = Some(mode.to_owned());
         } else if line.starts_with("new file mode") {
             pair.status = Status::Added;
         } else if line.starts_with("deleted file mode") {
@@ -178,11 +188,34 @@ fn token_name(token: SyntaxToken) -> &'static str {
     }
 }
 
+/// Returns the key of the only hunk of a file whose change has no content lines: a digest of
+/// what the change consists of, so any other metadata change of that file gets another key.
+fn metadata_key(pair: &FilePair) -> String {
+    let status = match pair.status {
+        Status::Added => "added",
+        Status::Modified => "modified",
+        Status::Deleted => "deleted",
+        Status::Renamed => "renamed",
+    };
+    let fields = [
+        status,
+        pair.old_path.as_deref().unwrap_or_default(),
+        pair.old_mode.as_deref().unwrap_or_default(),
+        pair.mode.as_deref().unwrap_or_default(),
+    ];
+    Sha256::digest(fields.join("\0"))
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 pub fn file_view(pair: FilePair, generated: bool) -> FileView {
     if pair.binary {
         return FileView {
             path: pair.path,
             old_path: pair.old_path,
+            old_mode: pair.old_mode,
+            mode: pair.mode,
             status: pair.status,
             binary: true,
             generated,
@@ -215,10 +248,18 @@ pub fn file_view(pair: FilePair, generated: bool) -> FileView {
             });
         }
     }
+    if !blocks.iter().any(|b| matches!(b, Block::Hunk { .. })) {
+        blocks.push(Block::Hunk {
+            key: metadata_key(&pair),
+            lines: Vec::new(),
+        });
+    }
 
     FileView {
         path: pair.path,
         old_path: pair.old_path,
+        old_mode: pair.old_mode,
+        mode: pair.mode,
         status: pair.status,
         binary: false,
         generated,
@@ -279,6 +320,8 @@ mod tests {
             old_content: old,
             binary: false,
             blob: None,
+            old_mode: None,
+            mode: None,
         };
 
         let view = file_view(pair, false);
@@ -292,6 +335,44 @@ mod tests {
             })
             .collect();
         assert_eq!(keys, expected);
+    }
+
+    fn only_hunk_key(git: &[u8]) -> String {
+        let pairs = parse_git_diff(git);
+        assert_eq!(pairs.len(), 1);
+        let view = file_view(pairs.into_iter().next().unwrap(), false);
+        match &view.blocks[..] {
+            [Block::Hunk { key, lines }] => {
+                assert!(lines.is_empty());
+                key.clone()
+            }
+            blocks => panic!("expected one hunk without lines, got {blocks:?}"),
+        }
+    }
+
+    #[test]
+    fn a_change_without_content_is_one_hunk_without_lines_keyed_by_the_change() {
+        let rename = b"diff --git a/r.txt b/r2.txt\nrename from r.txt\nrename to r2.txt\n";
+        let chmod = b"diff --git a/m.txt b/m.txt\nold mode 100644\nnew mode 100755\n";
+        let unchmod = b"diff --git a/m.txt b/m.txt\nold mode 100755\nnew mode 100644\n";
+        let empty =
+            b"diff --git a/e.txt b/e.txt\nnew file mode 100644\nindex 0000000000..e69de29bb2\n";
+
+        let keys = [&rename[..], &chmod[..], &unchmod[..], &empty[..]].map(only_hunk_key);
+
+        for (i, key) in keys.iter().enumerate() {
+            assert!(keys[i + 1..].iter().all(|other| other != key));
+        }
+    }
+
+    #[test]
+    fn a_mode_change_is_parsed() {
+        let git = b"diff --git a/m.txt b/m.txt\nold mode 100644\nnew mode 100755\n";
+
+        let pair = parse_git_diff(git).remove(0);
+
+        assert_eq!(pair.old_mode.as_deref(), Some("100644"));
+        assert_eq!(pair.mode.as_deref(), Some("100755"));
     }
 
     #[test]
