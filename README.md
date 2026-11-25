@@ -1,17 +1,19 @@
 # jj-diff-organizer
 
-A `jj` companion for those that love drag'n'drop as much as command lines.
+A `jj` companion for those who love drag-and-drop as much as command lines.
 
 ## Philosophy
 
-This app is a visual extension to the `jj` CLI, core principles are inspired by [acme](https://9p.io/sys/doc/acme/acme.html).
+This app is a visual extension to the `jj` CLI, core principles are inspired by [acme](https://9p.io/sys/doc/acme/acme.html). Half the screen shows a classical graph & diff, while the other half is a simple terminal.
 The interface is updated automatically based on the repo state. Commands can be executed by moving objects in the UI, with immediate feedback. Those commands are atomic and can be reverted with `jj undo`.
+
+The purely visual features are built around a “change, review, commit”worklfow.  
 
 ## Install
 
 Download from [Releases](https://github.com/casimir/jj-diff-organizer/releases/latest). The app updates itself.
 
-On macOS, `xattr -dr com.apple.quarantine` the app after a browser download.
+On macOS, run `xattr -dr com.apple.quarantine` on the app after a browser download.
 
 ## Release
 
