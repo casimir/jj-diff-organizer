@@ -71,13 +71,7 @@ function FileRow({ file, indented, reviewable }: { file: FileView; indented: boo
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {!file.binary && <DiffStat {...stat} />}
       {reviewable && (
-        <ReviewDot
-          state={state}
-          onClick={() => {
-            useSelectionStore.getState().selectFile(file.path);
-            void useSelectionStore.getState().toggleFile(file.path);
-          }}
-        />
+        <ReviewDot state={state} onClick={() => void useSelectionStore.getState().toggleFile(file.path)} />
       )}
     </ListRow>
   );
