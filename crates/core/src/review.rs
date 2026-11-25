@@ -4,7 +4,17 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
+use serde::Deserialize;
+
 pub type FileMarks = BTreeMap<String, BTreeSet<String>>;
+
+/// A file to mark as a whole, with the keys of the hunks it currently shows.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileKeys {
+    pub path: String,
+    pub shown_keys: Vec<String>,
+}
 
 #[derive(Debug)]
 pub struct Store {
@@ -38,7 +48,9 @@ impl Store {
         reviewed: bool,
         shown_keys: &[String],
     ) -> Result<(), String> {
-        self.update(change_id, file, &[key.to_owned()], reviewed, shown_keys)
+        let mut marks = self.marks(change_id)?;
+        apply(&mut marks, file, &[key.to_owned()], reviewed, shown_keys);
+        self.save(change_id, &marks)
     }
 
     pub fn set_file(
@@ -48,31 +60,27 @@ impl Store {
         reviewed: bool,
         shown_keys: &[String],
     ) -> Result<(), String> {
-        self.update(change_id, file, shown_keys, reviewed, shown_keys)
+        let mut marks = self.marks(change_id)?;
+        apply(&mut marks, file, shown_keys, reviewed, shown_keys);
+        self.save(change_id, &marks)
     }
 
-    fn update(
+    /// Marks or unmarks every shown hunk of the files of a group, writing once.
+    pub fn set_group(
         &self,
         change_id: &str,
-        file: &str,
-        keys: &[String],
         reviewed: bool,
-        shown_keys: &[String],
+        files: &[FileKeys],
     ) -> Result<(), String> {
         let mut marks = self.marks(change_id)?;
-        let entry = marks.entry(file.to_owned()).or_default();
-        for key in keys {
-            if reviewed {
-                entry.insert(key.clone());
-            } else {
-                entry.remove(key);
-            }
-        }
-        if !shown_keys.is_empty() && shown_keys.iter().all(|d| entry.contains(d)) {
-            entry.retain(|d| shown_keys.contains(d));
-        }
-        if entry.is_empty() {
-            marks.remove(file);
+        for file in files {
+            apply(
+                &mut marks,
+                &file.path,
+                &file.shown_keys,
+                reviewed,
+                &file.shown_keys,
+            );
         }
         self.save(change_id, &marks)
     }
@@ -111,6 +119,29 @@ impl Store {
     }
 }
 
+fn apply(
+    marks: &mut FileMarks,
+    file: &str,
+    keys: &[String],
+    reviewed: bool,
+    shown_keys: &[String],
+) {
+    let entry = marks.entry(file.to_owned()).or_default();
+    for key in keys {
+        if reviewed {
+            entry.insert(key.clone());
+        } else {
+            entry.remove(key);
+        }
+    }
+    if !shown_keys.is_empty() && shown_keys.iter().all(|d| entry.contains(d)) {
+        entry.retain(|d| shown_keys.contains(d));
+    }
+    if entry.is_empty() {
+        marks.remove(file);
+    }
+}
+
 fn at<E: Display>(path: &Path) -> impl Fn(E) -> String + '_ {
     move |e| format!("{}: {e}", path.display())
 }
@@ -129,6 +160,13 @@ mod tests {
 
     fn keys(ds: &[&str]) -> Vec<String> {
         ds.iter().map(|d| (*d).to_owned()).collect()
+    }
+
+    fn file_keys(path: &str, ds: &[&str]) -> FileKeys {
+        FileKeys {
+            path: path.to_owned(),
+            shown_keys: keys(ds),
+        }
     }
 
     fn set_of(ds: &[&str]) -> BTreeSet<String> {
@@ -184,6 +222,32 @@ mod tests {
         store.set_hunk("c1", "a.txt", "new1", true, &shown).unwrap();
         store.set_file("c1", "a.txt", false, &shown).unwrap();
         assert_eq!(store.marks("c1").unwrap()["a.txt"], set_of(&["old"]));
+    }
+
+    #[test]
+    fn a_group_marks_all_its_files_in_one_write_and_keeps_stale_marks_on_unmarking() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path().join("reviews")).unwrap();
+        let files = [
+            file_keys("d/a.txt", &["new1", "new2"]),
+            file_keys("d/b.txt", &["b1"]),
+        ];
+        store
+            .set_hunk("c1", "d/a.txt", "old", true, &keys(&["old"]))
+            .unwrap();
+
+        store.set_group("c1", true, &files).unwrap();
+        let marks = store.marks("c1").unwrap();
+        assert_eq!(marks["d/a.txt"], set_of(&["new1", "new2"]));
+        assert_eq!(marks["d/b.txt"], set_of(&["b1"]));
+
+        store
+            .set_hunk("c1", "d/a.txt", "old", true, &keys(&["old"]))
+            .unwrap();
+        store.set_group("c1", false, &files).unwrap();
+        let marks = store.marks("c1").unwrap();
+        assert_eq!(marks["d/a.txt"], set_of(&["old"]));
+        assert!(!marks.contains_key("d/b.txt"));
     }
 
     #[test]

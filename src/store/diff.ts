@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import * as api from "@/api";
+import { groupFiles } from "@/core/files";
 import { hunkKeys, pruneCollapseOverrides } from "@/core/hunks";
 import { errorMessage } from "@/error";
 import { isWorkingCopy, useGraphStore } from "@/store/graph";
@@ -15,6 +16,7 @@ interface DiffState {
   load: (changeId: string | null) => void;
   markHunk: (path: string, key: string, reviewed: boolean) => Promise<void>;
   markFile: (path: string, reviewed: boolean) => Promise<void>;
+  markGroup: (paths: string[], reviewed: boolean) => Promise<void>;
   setCollapsed: (path: string, collapsed: boolean) => void;
   reportDetailsError: (e: unknown) => void;
   refresh: () => Promise<void>;
@@ -41,9 +43,10 @@ export const useDiffStore = create<DiffState>((set, get) => {
   const loadDetails = async (changeId: string) => {
     const seq = ++latestDetails;
     try {
-      const [files, marks] = await Promise.all([api.show(changeId), api.marks(changeId)]);
+      const [shown, marks] = await Promise.all([api.show(changeId), api.marks(changeId)]);
       if (seq !== latestDetails) return;
 
+      const files = groupFiles(shown).flatMap((g) => g.files);
       const collapse = pruneCollapseOverrides(get().collapse, get(), { files, marks });
       set({ loadedId: changeId, files, marks, collapse, detailsError: null });
     } catch (e) {
@@ -67,16 +70,21 @@ export const useDiffStore = create<DiffState>((set, get) => {
     }
   };
 
-  const markWith = async (path: string, write: (changeId: string, shownKeys: string[]) => Promise<void>) => {
+  const markWith = async (
+    paths: string[],
+    write: (changeId: string, files: { path: string; shownKeys: string[] }[]) => Promise<void>,
+  ) => {
     const { loadedId: changeId, files } = get();
-    const file = files.find((f) => f.path === path);
-    if (!changeId || !file || !isWorkingCopy(useGraphStore.getState(), changeId)) return;
+    if (!changeId || !isWorkingCopy(useGraphStore.getState(), changeId)) return;
 
-    const shownKeys = hunkKeys(file);
-    if (shownKeys.length === 0) return;
+    const shown = files
+      .filter((f) => paths.includes(f.path))
+      .map((f) => ({ path: f.path, shownKeys: hunkKeys(f) }))
+      .filter((f) => f.shownKeys.length > 0);
+    if (shown.length === 0) return;
 
     try {
-      await write(changeId, shownKeys);
+      await write(changeId, shown);
     } catch (e) {
       useGraphStore.setState({ error: errorMessage(e) });
       return;
@@ -97,10 +105,13 @@ export const useDiffStore = create<DiffState>((set, get) => {
     },
 
     markHunk: (path, key, reviewed) =>
-      markWith(path, (changeId, shownKeys) => api.reviewSetHunk(changeId, path, key, reviewed, shownKeys)),
+      markWith([path], (changeId, [{ shownKeys }]) => api.reviewSetHunk(changeId, path, key, reviewed, shownKeys)),
 
     markFile: (path, reviewed) =>
-      markWith(path, (changeId, shownKeys) => api.reviewSetFile(changeId, path, reviewed, shownKeys)),
+      markWith([path], (changeId, [{ shownKeys }]) => api.reviewSetFile(changeId, path, reviewed, shownKeys)),
+
+    markGroup: (paths, reviewed) =>
+      markWith(paths, (changeId, files) => api.reviewSetGroup(changeId, reviewed, files)),
 
     setCollapsed: (path, collapsed) => set((s) => ({ collapse: { ...s.collapse, [path]: collapsed } })),
 

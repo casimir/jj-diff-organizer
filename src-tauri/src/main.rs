@@ -40,6 +40,7 @@ fn run_app() {
             handlers::marks,
             handlers::review_set_hunk,
             handlers::review_set_file,
+            handlers::review_set_group,
             handlers::run_jj,
             handlers::pty_start,
             handlers::pty_write,

@@ -8,7 +8,7 @@ use jjdo_core::history::Entry;
 use jjdo_core::hunk::HunkOp;
 use jjdo_core::jj::{Change, Run, hunk_tool_config};
 use jjdo_core::pty::Pty;
-use jjdo_core::review::FileMarks;
+use jjdo_core::review::{FileKeys, FileMarks};
 use serde::Deserialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, State, WebviewWindow};
@@ -156,6 +156,21 @@ pub fn review_set_file(
         .lock()
         .unwrap()
         .set_file(&change_id, &path, reviewed, &shown_keys)
+}
+
+#[tauri::command]
+pub fn review_set_group(
+    window: WebviewWindow,
+    sessions: State<'_, Sessions>,
+    change_id: String,
+    reviewed: bool,
+    files: Vec<FileKeys>,
+) -> Result<(), String> {
+    session_for(&sessions, &window)?
+        .review
+        .lock()
+        .unwrap()
+        .set_group(&change_id, reviewed, &files)
 }
 
 #[derive(Deserialize)]

@@ -19,14 +19,23 @@ export function hunkState(file: FileView, marks: Marks, key: string): HunkState 
   return marked.some((d) => !current.includes(d)) ? HunkState.Changed : HunkState.Unreviewed;
 }
 
-export function fileState(file: FileView, marks: Marks): HunkState | null {
-  const states = hunkKeys(file).map((key) => hunkState(file, marks, key));
+const hunkStates = (files: FileView[], marks: Marks): HunkState[] =>
+  files.flatMap((file) => hunkKeys(file).map((key) => hunkState(file, marks, key)));
 
+/** Returns the state summarizing the hunks of `files`, or `null` when they have none. */
+export function filesState(files: FileView[], marks: Marks): HunkState | null {
+  const states = hunkStates(files, marks);
   if (states.length === 0) return null;
   if (states.includes(HunkState.Changed)) return HunkState.Changed;
 
   return states.every((s) => s === HunkState.Reviewed) ? HunkState.Reviewed : HunkState.Unreviewed;
 }
+
+export const fileState = (file: FileView, marks: Marks): HunkState | null => filesState([file], marks);
+
+/** Returns whether a review action on `files` marks them, rather than clears them. */
+export const needsReview = (files: FileView[], marks: Marks): boolean =>
+  hunkStates(files, marks).some((s) => s !== HunkState.Reviewed);
 
 export function isCollapsed(
   file: FileView,

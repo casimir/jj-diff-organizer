@@ -20,6 +20,8 @@ export const reviewSetHunk = (changeId: string, path: string, key: string, revie
   invoke<void>("review_set_hunk", { changeId, path, key, reviewed, shownKeys });
 export const reviewSetFile = (changeId: string, path: string, reviewed: boolean, shownKeys: string[]) =>
   invoke<void>("review_set_file", { changeId, path, reviewed, shownKeys });
+export const reviewSetGroup = (changeId: string, reviewed: boolean, files: { path: string; shownKeys: string[] }[]) =>
+  invoke<void>("review_set_group", { changeId, reviewed, files });
 export const history = () => invoke<Entry[]>("history");
 export const runJj = (args: string[], hunk?: HunkRef) => invoke<Run>("run_jj", { args, hunk });
 

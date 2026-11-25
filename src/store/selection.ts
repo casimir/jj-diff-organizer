@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import * as api from "@/api";
-import { HunkState, hunkKeys } from "@/core/hunks";
+import { HunkState, needsReview } from "@/core/hunks";
 import {
   collapsedIn,
   fit,
@@ -37,6 +37,7 @@ interface SelectionState {
   moveHunk: (step: 1 | -1, onlyUnreviewed: boolean) => void;
   toggleHunk: (advance?: boolean) => Promise<void>;
   toggleFile: (path?: string) => Promise<void>;
+  toggleGroup: (paths: string[]) => Promise<void>;
   toggleCollapse: (path?: string) => void;
   scrolled: (visible: FileSelection[]) => void;
 }
@@ -62,11 +63,13 @@ export const useIsWorkingCopy = () => useSelectedChange()?.wc ?? false;
 export const useSelectionStore = create<SelectionState>((set, get) => {
   const place = (selection: Selection, reveal: Reveal | null = get().reveal) => set({ selection, reveal });
 
-  const mark = async (file: FileView, write: () => Promise<void>) => {
-    const wasCollapsed = collapsedIn(file, dataOf());
+  const mark = async (files: FileView[], write: () => Promise<void>) => {
+    const cursor = get().selection?.file?.path;
+    const cursorFile = files.find((f) => f.path === cursor);
+    const wasCollapsed = cursorFile && collapsedIn(cursorFile, dataOf());
     await write();
 
-    if (get().selection?.file?.path === file.path && !wasCollapsed && collapsedIn(file, dataOf())) {
+    if (cursorFile && !wasCollapsed && get().selection?.file?.path === cursor && collapsedIn(cursorFile, dataOf())) {
       get().moveHunk(1, true);
     }
   };
@@ -159,7 +162,7 @@ export const useSelectionStore = create<SelectionState>((set, get) => {
       if (!file || hunk === undefined) return;
 
       const reviewed = (useDiffStore.getState().marks[file.path] ?? []).includes(hunk);
-      await mark(file, () => useDiffStore.getState().markHunk(file.path, hunk, !reviewed));
+      await mark([file], () => useDiffStore.getState().markHunk(file.path, hunk, !reviewed));
       if (advance && !reviewed && sameLeaf(get().selection?.file, { path: file.path, hunk })) {
         get().moveHunk(1, true);
       }
@@ -169,9 +172,17 @@ export const useSelectionStore = create<SelectionState>((set, get) => {
       const file = fileOf(path);
       if (!file) return;
 
-      const marked = useDiffStore.getState().marks[file.path] ?? [];
-      const reviewed = !hunkKeys(file).every((key) => marked.includes(key));
-      await mark(file, () => useDiffStore.getState().markFile(file.path, reviewed));
+      const reviewed = needsReview([file], useDiffStore.getState().marks);
+      await mark([file], () => useDiffStore.getState().markFile(file.path, reviewed));
+    },
+
+    toggleGroup: async (paths) => {
+      const { files, marks } = useDiffStore.getState();
+      const targets = files.filter((f) => paths.includes(f.path));
+      if (targets.length === 0) return;
+
+      const reviewed = needsReview(targets, marks);
+      await mark(targets, () => useDiffStore.getState().markGroup(paths, reviewed));
     },
 
     toggleCollapse: (path = get().selection?.file?.path) => {

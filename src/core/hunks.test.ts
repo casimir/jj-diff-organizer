@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { HunkState, hunkState, isCollapsed, pruneCollapseOverrides } from "@/core/hunks";
+import { HunkState, fileState, filesState, hunkState, isCollapsed, needsReview, pruneCollapseOverrides } from "@/core/hunks";
 import { file } from "@/fixtures";
+import { FileStatus } from "@/types";
 
 describe("hunkState", () => {
   it("flags an unreviewed hunk as changed when a marked hunk of its file no longer exists", () => {
@@ -13,6 +14,34 @@ describe("hunkState", () => {
 
   it("leaves a never-reviewed file unreviewed", () => {
     expect(hunkState(file("a.txt", ["d1"]), {}, "d1")).toBe(HunkState.Unreviewed);
+  });
+});
+
+describe("fileState and filesState", () => {
+  const a = file("a.txt", ["a1", "a2"]);
+  const b = file("b.txt", ["b1"]);
+
+  it("is unreviewed until every file is reviewed, and changed when any file is", () => {
+    expect(fileState(a, { "a.txt": ["a1"] })).toBe(HunkState.Unreviewed);
+    expect(filesState([a, b], { "a.txt": ["a1", "a2"] })).toBe(HunkState.Unreviewed);
+    expect(filesState([a, b], {})).toBe(HunkState.Unreviewed);
+    expect(filesState([a, b], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(HunkState.Reviewed);
+    expect(filesState([a, file("b.txt", ["b1-edited"])], { "b.txt": ["b1"] })).toBe(HunkState.Changed);
+  });
+
+  it("ignores files without hunks", () => {
+    const renamed = file("new.txt", [], { status: FileStatus.Renamed, old_path: "old.txt" });
+    expect(filesState([renamed], {})).toBeNull();
+    expect(filesState([renamed, b], { "b.txt": ["b1"] })).toBe(HunkState.Reviewed);
+  });
+});
+
+describe("needsReview", () => {
+  const files = [file("a.txt", ["a1"]), file("b.txt", ["b1"])];
+
+  it("marks while any hunk is unreviewed and clears once all are reviewed", () => {
+    expect(needsReview(files, { "a.txt": ["a1"] })).toBe(true);
+    expect(needsReview(files, { "a.txt": ["a1"], "b.txt": ["b1"] })).toBe(false);
   });
 });
 
