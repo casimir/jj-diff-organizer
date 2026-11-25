@@ -24,15 +24,16 @@ function DirRow({ group, reviewable }: { group: FileGroup; reviewable: boolean }
   const state = useDiffStore((s) => filesState(group.files, s.marks));
 
   return (
-    <div className={`${ROW} pl-2 text-dim`}>
+    <ListRow className={`${ROW} pl-2 text-dim`}>
       <span className="min-w-0 flex-1 truncate">{group.dir}/</span>
       {reviewable && (
         <ReviewDot
           state={state}
+          quiet
           onClick={() => void useSelectionStore.getState().toggleGroup(group.files.map((f) => f.path))}
         />
       )}
-    </div>
+    </ListRow>
   );
 }
 
@@ -71,7 +72,7 @@ function FileRow({ file, indented, reviewable }: { file: FileView; indented: boo
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {!file.binary && <DiffStat {...stat} />}
       {reviewable && (
-        <ReviewDot state={state} onClick={() => void useSelectionStore.getState().toggleFile(file.path)} />
+        <ReviewDot state={state} quiet onClick={() => void useSelectionStore.getState().toggleFile(file.path)} />
       )}
     </ListRow>
   );

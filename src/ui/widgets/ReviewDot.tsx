@@ -8,7 +8,11 @@ const STYLE: Record<HunkState, { className: string; title: string }> = {
 
 const SIZE = "size-3 shrink-0";
 
-export function ReviewDot({ state, onClick }: { state: HunkState | null; onClick: () => void }) {
+export function ReviewDot({ state, quiet = false, onClick }: {
+  state: HunkState | null;
+  quiet?: boolean;
+  onClick: () => void;
+}) {
   if (!state) return <span className={SIZE} />;
 
   const { className, title } = STYLE[state];
@@ -17,6 +21,7 @@ export function ReviewDot({ state, onClick }: { state: HunkState | null; onClick
       type="button"
       title={title}
       aria-label={title}
+      data-quiet={(quiet && state === HunkState.Reviewed) || undefined}
       className={`relative ${SIZE} rounded-full border before:absolute before:top-1/2 before:left-1/2 before:size-target before:-translate-1/2 before:content-[''] ${className}`}
       onClick={(e) => {
         e.stopPropagation();

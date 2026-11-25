@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HunkState, fileState, filesState, hunkState, isCollapsed, needsReview, pruneCollapseOverrides } from "@/core/hunks";
+import { HunkState, fileState, filesState, hunkState, isCollapsed, needsReview, pruneCollapseOverrides, reviewProgress } from "@/core/hunks";
 import { file } from "@/fixtures";
 import { FileStatus } from "@/types";
 
@@ -42,6 +42,23 @@ describe("needsReview", () => {
   it("marks while any hunk is unreviewed and clears once all are reviewed", () => {
     expect(needsReview(files, { "a.txt": ["a1"] })).toBe(true);
     expect(needsReview(files, { "a.txt": ["a1"], "b.txt": ["b1"] })).toBe(false);
+  });
+});
+
+describe("reviewProgress", () => {
+  const a = file("a.txt", ["a1", "a2"]);
+  const b = file("b.txt", ["b1"]);
+  const renamed = file("new.txt", [], { status: FileStatus.Renamed, old_path: "old.txt" });
+
+  it("is null until a file is reviewed, even with hunkless files", () => {
+    expect(reviewProgress([a, b, renamed], {})).toBeNull();
+    expect(reviewProgress([a, b, renamed], { "a.txt": ["a1"] })).toBeNull();
+  });
+
+  it("counts only files with nothing left, hunkless ones included", () => {
+    expect(reviewProgress([a, b, renamed], { "b.txt": ["b1"] })).toBe(2);
+    expect(reviewProgress([a, file("b.txt", ["b1-edited"]), renamed], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(2);
+    expect(reviewProgress([a, b, renamed], { "a.txt": ["a1", "a2"], "b.txt": ["b1"] })).toBe(3);
   });
 });
 

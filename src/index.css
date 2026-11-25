@@ -112,6 +112,10 @@
   background-color: var(--color-subtle);
 }
 
+[data-row]:not(:hover, [data-selected]) [data-quiet] {
+  visibility: hidden;
+}
+
 [data-row][data-selected] {
   background-color: var(--color-selected);
 }

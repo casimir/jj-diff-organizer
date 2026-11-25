@@ -35,7 +35,7 @@ function Details() {
         <Group orientation="horizontal">
           <Panel defaultSize="256px" minSize="15%">
             <div className="h-full overflow-auto">
-              <DiffSummary files={files} />
+              <DiffSummary files={files} reviewable={reviewable} />
               <FileList files={files} reviewable={reviewable} />
             </div>
           </Panel>
