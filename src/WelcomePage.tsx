@@ -24,28 +24,30 @@ export function WelcomePage() {
       </div>
       {error && <ErrorText>{error}</ErrorText>}
       {recentRepos.length > 0 && (
-        <section className="min-h-0 flex-1 overflow-auto">
-          <h2 className="mb-1 text-muted">Recent repositories</h2>
-          {recentRepos.map((root) => (
-            <ListRow key={root} className="flex items-center border-b border-line">
-              <Button
-                variant={ButtonVariant.Ghost}
-                className="min-w-0 flex-1 truncate py-1 text-left font-mono text-fg"
-                disabled={opening}
-                title={root}
-                onClick={() => void useRepoStore.getState().open(root)}
-              >
-                {root}
-              </Button>
-              <Button
-                variant={ButtonVariant.Ghost}
-                aria-label={`Remove ${root} from recent repositories`}
-                onClick={() => void useSettingsStore.getState().forgetRepo(root)}
-              >
-                <X className="size-4" />
-              </Button>
-            </ListRow>
-          ))}
+        <section className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
+          <h2 className="text-muted">Recent repositories</h2>
+          <div className="divide-y divide-line">
+            {recentRepos.map((root) => (
+              <ListRow key={root} className="flex items-center">
+                <Button
+                  variant={ButtonVariant.Ghost}
+                  className="min-w-0 flex-1 truncate py-1 text-left font-mono text-fg"
+                  disabled={opening}
+                  title={root}
+                  onClick={() => void useRepoStore.getState().open(root)}
+                >
+                  {root}
+                </Button>
+                <Button
+                  variant={ButtonVariant.Ghost}
+                  aria-label={`Remove ${root} from recent repositories`}
+                  onClick={() => void useSettingsStore.getState().forgetRepo(root)}
+                >
+                  <X className="size-4" />
+                </Button>
+              </ListRow>
+            ))}
+          </div>
         </section>
       )}
     </div>

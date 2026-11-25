@@ -7,7 +7,8 @@ import { MOD } from "@/keys";
 import { useGraphStore } from "@/store/graph";
 import { useSelectionStore } from "@/store/selection";
 import { ErrorText } from "@/ui/components/ErrorText";
-import { KeyBadge } from "@/ui/components/KeyBadge";
+import { Header } from "@/ui/components/Header";
+import { Hint } from "@/ui/components/Hint";
 import { StatusBar } from "@/ui/components/StatusBar";
 import { TextInput } from "@/ui/components/TextInput";
 import { GraphRow } from "@/ui/widgets/GraphRow";
@@ -26,9 +27,9 @@ export function GraphPane() {
 
   return (
     <div data-pane="graph" tabIndex={-1} className="flex h-full flex-col outline-none">
-      <div className="flex gap-2 border-b border-line p-1">
+      <Header>
         <RevsetInput key={revset} initial={revset} />
-      </div>
+      </Header>
       {error && <ErrorText className="border-b border-danger">{error}</ErrorText>}
       <div
         {...group}
@@ -46,8 +47,9 @@ export function GraphPane() {
         ))}
       </div>
       <StatusBar>
-        <KeyBadge>n</KeyBadge> <KeyBadge>p</KeyBadge> navigate changes <KeyBadge>@</KeyBadge> working copy{" "}
-        <KeyBadge>{`${MOD}+1`}</KeyBadge> focus
+        <Hint keys={["n", "p"]}>navigate changes</Hint>
+        <Hint keys={["@"]}>working copy</Hint>
+        <Hint keys={[`${MOD}+1`]}>focus</Hint>
       </StatusBar>
     </div>
   );

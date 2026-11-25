@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import type { DragObject } from "@/core/dnd/objects";
 import { groupFiles, type FileGroup } from "@/core/files";
-import { diffStat, fileState, filesState, type HunkState } from "@/core/hunks";
+import { diffStat, fileState, filesState } from "@/core/hunks";
 import { useDragObject } from "@/hooks/useDragObject";
 import { useDiffStore } from "@/store/diff";
 import { useSelectedChange, useSelectionStore } from "@/store/selection";
@@ -20,10 +20,6 @@ const STATUS: Record<FileStatus, { letter: string; className: string }> = {
 
 const ROW = "flex items-center gap-2 py-1 pr-2";
 
-function Marker({ state, onClick }: { state: HunkState | null; onClick: () => void }) {
-  return state ? <ReviewDot state={state} onClick={onClick} /> : <span className="size-3 shrink-0" />;
-}
-
 function DirRow({ group, reviewable }: { group: FileGroup; reviewable: boolean }) {
   const state = useDiffStore((s) => filesState(group.files, s.marks));
 
@@ -31,7 +27,7 @@ function DirRow({ group, reviewable }: { group: FileGroup; reviewable: boolean }
     <div className={`${ROW} pl-2 text-dim`}>
       <span className="min-w-0 flex-1 truncate">{group.dir}/</span>
       {reviewable && (
-        <Marker
+        <ReviewDot
           state={state}
           onClick={() => void useSelectionStore.getState().toggleGroup(group.files.map((f) => f.path))}
         />
@@ -75,7 +71,7 @@ function FileRow({ file, indented, reviewable }: { file: FileView; indented: boo
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {!file.binary && <DiffStat {...stat} />}
       {reviewable && (
-        <Marker
+        <ReviewDot
           state={state}
           onClick={() => {
             useSelectionStore.getState().selectFile(file.path);

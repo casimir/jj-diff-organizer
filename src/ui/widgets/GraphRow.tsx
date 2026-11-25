@@ -53,7 +53,7 @@ export const GraphRow = memo(function GraphRow({
       onClick={() => onSelect(change.change_id)}
       {...dragAttributes}
       {...dropTarget}
-      className="flex gap-2 pl-2"
+      className="flex gap-2 px-2"
     >
       <div className="relative shrink-0" style={{ width: `calc(var(--spacing-lane) * ${laneCount})` }}>
         <svg className="absolute inset-0 size-full stroke-muted">
@@ -84,7 +84,7 @@ export const GraphRow = memo(function GraphRow({
         </svg>
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-1 py-0.5 pr-2">
+        <div className="flex items-center gap-1 py-0.5">
           <span className="shrink-0 font-mono text-change-id">
             <b className="text-fg">{change.short_prefix}</b>
             {shortId.slice(change.short_prefix.length)}
@@ -116,7 +116,7 @@ export const GraphRow = memo(function GraphRow({
           </div>
           <RelativeTime ms={change.committed_ms} className="shrink-0 text-muted" />
         </div>
-        <span className={`truncate py-0.5 pr-2 ${change.desc ? "" : "text-muted italic"}`}>
+        <span className={`truncate py-0.5${change.desc ? "" : "text-muted italic"}`}>
           {change.desc || (change.empty ? "(empty) (no description)" : "(no description)")}
         </span>
       </div>

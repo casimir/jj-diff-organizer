@@ -13,7 +13,7 @@ import { IS_MAC } from "@/platform";
 import { useTerminalStore } from "@/store/terminal";
 import { TERMINAL_THEMES } from "@/terminalThemes";
 import { ErrorText } from "@/ui/components/ErrorText";
-import { KeyBadge } from "@/ui/components/KeyBadge";
+import { Hint } from "@/ui/components/Hint";
 
 const TERMINAL_ID = "terminal";
 const EXIT_NOTICE = new TextEncoder().encode("\r\n[shell exited, press Enter to restart]");
@@ -125,19 +125,15 @@ export function TerminalPane() {
       data-terminal
       {...dropTarget}
       style={{ background: theme.background }}
-      className={`flex flex-col p-1 ${maximized ? "fixed inset-0 z-(--z-overlay)" : "relative h-full"}`}
+      className={`flex flex-col gap-1 p-1 ${maximized ? "fixed inset-0 z-(--z-overlay)" : "relative h-full"}`}
     >
       {error && (
         <ErrorText className="absolute inset-x-0 top-0 z-(--z-sticky)">{error}</ErrorText>
       )}
       <div key={session} ref={host} className="min-h-0 w-full flex-1" />
-      <div className="flex shrink-0 gap-3 pt-1 text-muted">
-        <span>
-          <KeyBadge>{`${MOD}+2`}</KeyBadge> focus
-        </span>
-        <span>
-          <KeyBadge>{`${MOD}+Shift+M`}</KeyBadge> {maximized ? "restore" : "maximize"}
-        </span>
+      <div className="flex shrink-0 gap-3 text-muted">
+        <Hint keys={[`${MOD}+2`]}>focus</Hint>
+        <Hint keys={[`${MOD}+Shift+M`]}>{maximized ? "restore" : "maximize"}</Hint>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { MOD } from "@/keys";
 import { useHistoryStore } from "@/store/history";
 import { ErrorText } from "@/ui/components/ErrorText";
-import { KeyBadge } from "@/ui/components/KeyBadge";
+import { Hint } from "@/ui/components/Hint";
 import { ListRow } from "@/ui/components/ListRow";
 import { RelativeTime } from "@/ui/components/RelativeTime";
 import { StatusBar } from "@/ui/components/StatusBar";
@@ -15,11 +15,11 @@ export function HistoryPane() {
     <div data-pane="history" tabIndex={-1} className="flex h-full flex-col outline-none">
       {error && <ErrorText>{error}</ErrorText>}
       <div className="flex min-h-0 flex-1 flex-col-reverse overflow-auto">
-        <div>
+        <div className="divide-y divide-line">
           {entries.map(({ id, time, command, gui, failed, detail }) => {
             const selected = id === selectedKey;
             return (
-              <div key={id} className="border-b border-line">
+              <div key={id}>
                 <ListRow
                   selected={selected}
                   className="flex cursor-default gap-2 px-2 py-1"
@@ -43,7 +43,7 @@ export function HistoryPane() {
         </div>
       </div>
       <StatusBar>
-        <KeyBadge>{`${MOD}+3`}</KeyBadge> focus
+        <Hint keys={[`${MOD}+3`]}>focus</Hint>
       </StatusBar>
     </div>
   );

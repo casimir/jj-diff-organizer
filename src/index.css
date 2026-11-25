@@ -32,7 +32,7 @@
 
 :root {
   color-scheme: light dark;
-  --diff-header-h: 2.25rem;
+  --header-h: 2.25rem;
   --drop-color: var(--color-accent);
   --indicator-width: 2px;
   --opacity-inactive: 40%;
@@ -40,11 +40,6 @@
   --z-overlay: 50;
   --z-sticky: 10;
   --z-trash: 20;
-}
-
-html,
-body {
-  overscroll-behavior: none;
 }
 
 :where([data-drag]):focus {
@@ -126,6 +121,11 @@ body,
 #root {
   height: 100%;
   margin: 0;
+}
+
+html,
+body {
+  overscroll-behavior: none;
 }
 
 body {

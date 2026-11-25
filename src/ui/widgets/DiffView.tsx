@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import type { DragObject } from "@/core/dnd/objects";
@@ -60,7 +60,18 @@ function Line({ line }: { line: DiffLine }) {
   );
 }
 
-const RAIL = "w-8 shrink-0";
+function Gutter({ rail, children, className = "", ...props }: ComponentProps<"div"> & { rail?: ReactNode }) {
+  return (
+    <div className={`flex ${className}`} {...props}>
+      <div className="flex w-8 shrink-0 items-center justify-center">{rail}</div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+  return <div className="px-2 py-1 text-dim">{children}</div>;
+}
 
 function Hunk({ file, hunkKey, lines, reviewable }: {
   file: FileView;
@@ -83,7 +94,7 @@ function Hunk({ file, hunkKey, lines, reviewable }: {
   const dragAttributes = useDragObject(`hunk:${file.path}:${hunkKey}`, ref, object, !movable);
 
   return (
-    <div
+    <Gutter
       ref={ref}
       onClick={() => useSelectionStore.getState().selectHunk(file.path, hunkKey)}
       {...dragAttributes}
@@ -91,10 +102,9 @@ function Hunk({ file, hunkKey, lines, reviewable }: {
       data-path={file.path}
       data-hunk={hunkKey}
       data-selected={selected || undefined}
-      className="flex scroll-mt-[calc(var(--diff-header-h)+1lh)] scroll-mb-[1lh]"
-    >
-      <div className={`${RAIL} flex items-center justify-center`}>
-        {reviewable && (
+      className="scroll-mt-[calc(var(--header-h)+1lh)] scroll-mb-[1lh]"
+      rail={
+        reviewable && (
           <ReviewDot
             state={state}
             onClick={() => {
@@ -102,16 +112,11 @@ function Hunk({ file, hunkKey, lines, reviewable }: {
               void useSelectionStore.getState().toggleHunk();
             }}
           />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        {file.binary ? (
-          <div className="px-2 py-1 text-dim">Binary file</div>
-        ) : (
-          lines.map((line, i) => <Line key={i} line={line} />)
-        )}
-      </div>
-    </div>
+        )
+      }
+    >
+      {file.binary ? <Notice>Binary file</Notice> : lines.map((line, i) => <Line key={i} line={line} />)}
+    </Gutter>
   );
 }
 
@@ -149,7 +154,7 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
           useSelectionStore.getState().selectFile(file.path);
           useSelectionStore.getState().toggleCollapse(file.path);
         }}
-        className="sticky top-0 z-(--z-sticky) cursor-pointer border-line bg-subtle"
+        className="sticky top-0 z-(--z-sticky) cursor-pointer bg-subtle"
       >
         <div className="flex min-w-0 items-center gap-2">
           <Chevron className="size-3.5 shrink-0 text-muted" />
@@ -170,17 +175,12 @@ function FileDiff({ file, reviewable }: { file: FileView; reviewable: boolean })
       </Header>
       {!collapsed && (
         <>
-          {file.blocks.length === 0 && (
-            <div className="px-2 py-1 text-dim">{file.binary ? "Binary file" : "No content changes"}</div>
-          )}
+          {file.blocks.length === 0 && <Notice>{file.binary ? "Binary file" : "No content changes"}</Notice>}
           {file.blocks.map((block, i) =>
             block.kind === BlockKind.Line ? (
-              <div key={i} className="flex">
-                <div className={RAIL} />
-                <div className="min-w-0 flex-1">
-                  <Line line={block.line} />
-                </div>
-              </div>
+              <Gutter key={i}>
+                <Line line={block.line} />
+              </Gutter>
             ) : (
               <Hunk key={i} file={file} hunkKey={block.key} lines={block.lines} reviewable={reviewable} />
             ),

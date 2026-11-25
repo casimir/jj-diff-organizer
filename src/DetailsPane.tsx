@@ -4,7 +4,7 @@ import { useDiffStore } from "@/store/diff";
 import { useIsReviewable, useSelectionStore } from "@/store/selection";
 import { ErrorText } from "@/ui/components/ErrorText";
 import { Handle } from "@/ui/components/Handle";
-import { KeyBadge } from "@/ui/components/KeyBadge";
+import { Hint } from "@/ui/components/Hint";
 import { StatusBar } from "@/ui/components/StatusBar";
 import { DiffSummary } from "@/ui/widgets/DiffSummary";
 import { DiffView } from "@/ui/widgets/DiffView";
@@ -45,35 +45,17 @@ function Details() {
           </Panel>
         </Group>
       </div>
-      <StatusBar className="flex gap-6">
-        <div className="flex gap-3">
-          <span>
-            <KeyBadge>j</KeyBadge> <KeyBadge>k</KeyBadge> navigate files
-          </span>
-          {reviewable && (
-            <span>
-              <KeyBadge>R</KeyBadge> review file
-            </span>
-          )}
-          <span>
-            <KeyBadge>c</KeyBadge> collapse file
-          </span>
-        </div>
-        <div className="flex gap-3">
-          <span>
-            <KeyBadge>[</KeyBadge> <KeyBadge>]</KeyBadge> navigate hunks
-          </span>
-          {reviewable && (
-            <>
-              <span>
-                <KeyBadge>u</KeyBadge> next unreviewed
-              </span>
-              <span>
-                <KeyBadge>Space</KeyBadge> review hunk
-              </span>
-            </>
-          )}
-        </div>
+      <StatusBar>
+        <Hint keys={["j", "k"]}>navigate files</Hint>
+        {reviewable && <Hint keys={["R"]}>review file</Hint>}
+        <Hint keys={["c"]}>collapse file</Hint>
+        <Hint keys={["[", "]"]}>navigate hunks</Hint>
+        {reviewable && (
+          <>
+            <Hint keys={["u"]}>next unreviewed</Hint>
+            <Hint keys={["Space"]}>review hunk</Hint>
+          </>
+        )}
       </StatusBar>
     </div>
   );
