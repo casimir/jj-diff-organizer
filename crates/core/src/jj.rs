@@ -54,6 +54,7 @@ pub struct Change {
     pub unsynced_bookmarks: Vec<String>,
     pub wc: bool,
     pub immutable: bool,
+    pub divergent: bool,
     pub empty: bool,
     pub conflict: bool,
 }
@@ -98,8 +99,8 @@ impl Op {
 }
 
 const CHANGE_TEMPLATE: &str = r#"json({
-  "change_id" => change_id,
-  "short" => change_id.short(8),
+  "change_id" => stringify(change_id ++ if(divergent, "/" ++ change_offset)),
+  "short" => stringify(change_id.short(8) ++ if(divergent, "/" ++ change_offset)),
   "short_prefix" => change_id.shortest(8).prefix(),
   "commit_id" => commit_id,
   "parents" => parents.map(|p| p.commit_id()),
@@ -109,6 +110,7 @@ const CHANGE_TEMPLATE: &str = r#"json({
   "unsynced_bookmarks" => bookmarks.filter(|b| !b.remote() && !b.synced()).map(|b| b.name()),
   "wc" => current_working_copy,
   "immutable" => immutable,
+  "divergent" => divergent,
   "empty" => empty,
   "conflict" => conflict,
 }) ++ "\n""#;

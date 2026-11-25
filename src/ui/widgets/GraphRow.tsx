@@ -15,6 +15,8 @@ const LINES = 2;
 const NODE_Y = `${50 / LINES}%`;
 const LINE_END_Y = `${100 / LINES}%`;
 
+const diamond = (r: number) => `0,${-r} ${r},0 0,${r} ${-r},0`;
+
 export const GraphRow = memo(function GraphRow({
   row,
   handler,
@@ -32,6 +34,9 @@ export const GraphRow = memo(function GraphRow({
   const laneX = (lane: number) => `${((lane + 0.5) / laneCount) * 100}%`;
   const x = laneX(col);
   const fill = change.wc ? "fill-success" : change.immutable ? "fill-muted" : "fill-canvas";
+  const nodeClass = `${fill} ${change.conflict ? "stroke-danger" : "stroke-dim"}`;
+  const radius = change.wc ? 5 : 4;
+  const [shortId, offset] = change.short.split("/");
 
   const ref = useRef<HTMLDivElement>(null);
   const object: DragObject = { kind: "change", change };
@@ -69,20 +74,21 @@ export const GraphRow = memo(function GraphRow({
             <line key={i} x1={x} y1={NODE_Y} x2={laneX(lane)} y2="100%" />
           ))}
           {elided && <line x1={x} y1={NODE_Y} x2={x} y2={LINE_END_Y} strokeDasharray="2 2" />}
-          <circle
-            cx={x}
-            cy={NODE_Y}
-            r={change.wc ? 5 : 4}
-            className={`${fill} ${change.conflict ? "stroke-danger" : "stroke-dim"}`}
-            strokeWidth={1.5}
-          />
+          <svg x={x} y={NODE_Y} overflow="visible">
+            {change.immutable ? (
+              <polygon points={diamond(radius)} className={nodeClass} strokeWidth={1.5} />
+            ) : (
+              <circle r={radius} className={nodeClass} strokeWidth={1.5} />
+            )}
+          </svg>
         </svg>
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-1 py-0.5 pr-2">
           <span className="shrink-0 font-mono text-change-id">
             <b className="text-fg">{change.short_prefix}</b>
-            {change.short.slice(change.short_prefix.length)}
+            {shortId.slice(change.short_prefix.length)}
+            {offset !== undefined && <span className="text-danger">/{offset}</span>}
           </span>
           <div className="flex min-w-0 flex-1 gap-1">
             {change.wc && (

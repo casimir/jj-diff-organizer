@@ -1,5 +1,5 @@
 import { IS_MAC } from "@/platform";
-import { isWorkingCopy, useGraphStore } from "@/store/graph";
+import { isReviewable, useGraphStore } from "@/store/graph";
 import { useSelectionStore } from "@/store/selection";
 import { useTerminalStore } from "@/store/terminal";
 
@@ -48,7 +48,7 @@ export function handleKey(e: KeyboardEvent): boolean {
 
   if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return false;
   const selection = useSelectionStore.getState();
-  const reviewable = isWorkingCopy(useGraphStore.getState(), selection.selection?.change);
+  const reviewable = isReviewable(useGraphStore.getState(), selection.selection?.change);
   switch (e.key) {
     case "n":
       selection.moveChange(1);

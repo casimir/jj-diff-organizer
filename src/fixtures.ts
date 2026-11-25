@@ -13,6 +13,7 @@ export function change(id: string, overrides: Partial<Change> = {}): Change {
     unsynced_bookmarks: [],
     wc: false,
     immutable: false,
+    divergent: false,
     empty: false,
     conflict: false,
     ...overrides,

@@ -1,7 +1,7 @@
 import { Group, Panel } from "react-resizable-panels";
 
 import { useDiffStore } from "@/store/diff";
-import { useIsWorkingCopy, useSelectionStore } from "@/store/selection";
+import { useIsReviewable, useSelectionStore } from "@/store/selection";
 import { ErrorText } from "@/ui/components/ErrorText";
 import { Handle } from "@/ui/components/Handle";
 import { KeyBadge } from "@/ui/components/KeyBadge";
@@ -26,7 +26,7 @@ function Details() {
   const selectedId = useSelectionStore((s) => s.selection?.change);
   const files = useDiffStore((s) => s.files);
   const detailsError = useDiffStore((s) => s.detailsError);
-  const reviewable = useIsWorkingCopy();
+  const reviewable = useIsReviewable();
 
   return (
     <div className="flex h-full flex-col">

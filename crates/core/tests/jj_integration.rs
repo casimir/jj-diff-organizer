@@ -445,6 +445,35 @@ fn successors_follow_a_squash_but_not_an_abandon() {
 }
 
 #[test]
+fn divergent_commits_get_the_cli_ids_that_resolve_to_each_of_them() {
+    let dir = init_repo();
+    let p = dir.path();
+    let jj = Jj::new(Repo::discover(p).unwrap());
+    let before = jj_ok(p, &["op", "log", "--no-graph", "-n1", "-T", "id.short()"]);
+    jj_ok(p, &["describe", "-m", "one"]);
+    jj_ok(p, &["--at-op", &before, "describe", "-m", "two"]);
+    // The concurrent op heads are only merged by the next regular command; reads pin `--at-op=@`.
+    jj_ok(p, &["log", "--no-graph", "-T", ""]);
+
+    let divergent: Vec<_> = jj
+        .graph("all()")
+        .unwrap()
+        .into_iter()
+        .filter(|c| c.divergent)
+        .collect();
+
+    assert_eq!(divergent.len(), 2);
+    assert_ne!(divergent[0].change_id, divergent[1].change_id);
+    for change in &divergent {
+        assert!(change.change_id.contains('/'));
+        assert_eq!(
+            jj.diff(&change.change_id).unwrap().commit_id,
+            change.commit_id
+        );
+    }
+}
+
+#[test]
 fn successors_reject_an_id_that_would_break_out_of_the_template() {
     let dir = init_repo();
     let jj = Jj::new(Repo::discover(dir.path()).unwrap());

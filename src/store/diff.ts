@@ -4,7 +4,7 @@ import * as api from "@/api";
 import { groupFiles } from "@/core/files";
 import { hunkKeys, pruneCollapseOverrides } from "@/core/hunks";
 import { errorMessage } from "@/error";
-import { isWorkingCopy, useGraphStore } from "@/store/graph";
+import { isReviewable, useGraphStore } from "@/store/graph";
 import type { FileView, Marks } from "@/types";
 
 interface DiffState {
@@ -39,11 +39,14 @@ const EMPTY_DETAILS: Omit<DiffState, ActionKey> = {
   detailsError: null,
 };
 
+const marksOf = (changeId: string): Promise<Marks> =>
+  isReviewable(useGraphStore.getState(), changeId) ? api.marks(changeId) : Promise.resolve({});
+
 export const useDiffStore = create<DiffState>((set, get) => {
   const loadDetails = async (changeId: string) => {
     const seq = ++latestDetails;
     try {
-      const [shown, marks] = await Promise.all([api.show(changeId), api.marks(changeId)]);
+      const [shown, marks] = await Promise.all([api.show(changeId), marksOf(changeId)]);
       if (seq !== latestDetails) return;
 
       const files = groupFiles(shown).flatMap((g) => g.files);
@@ -59,7 +62,7 @@ export const useDiffStore = create<DiffState>((set, get) => {
   const loadMarks = async (changeId: string) => {
     const seq = ++latestMarks;
     try {
-      const marks = await api.marks(changeId);
+      const marks = await marksOf(changeId);
       if (seq === latestMarks && requested === changeId) {
         set((s) => ({ marks, collapse: pruneCollapseOverrides(s.collapse, s, { files: s.files, marks }) }));
       }
@@ -75,7 +78,7 @@ export const useDiffStore = create<DiffState>((set, get) => {
     write: (changeId: string, files: { path: string; shownKeys: string[] }[]) => Promise<void>,
   ) => {
     const { loadedId: changeId, files } = get();
-    if (!changeId || !isWorkingCopy(useGraphStore.getState(), changeId)) return;
+    if (!changeId || !isReviewable(useGraphStore.getState(), changeId)) return;
 
     const shown = files
       .filter((f) => paths.includes(f.path))

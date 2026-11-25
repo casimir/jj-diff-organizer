@@ -21,6 +21,7 @@ export interface Change {
   unsynced_bookmarks: string[];
   wc: boolean;
   immutable: boolean;
+  divergent: boolean;
   empty: boolean;
   conflict: boolean;
 }

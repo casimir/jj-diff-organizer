@@ -16,7 +16,7 @@ import {
 } from "@/core/selection";
 import { errorMessage } from "@/error";
 import { useDiffStore } from "@/store/diff";
-import { isWorkingCopy, useGraphStore } from "@/store/graph";
+import { bareChangeId, isReviewable, takesReview, useGraphStore } from "@/store/graph";
 import type { FileView } from "@/types";
 
 interface Reveal {
@@ -46,7 +46,7 @@ const dataOf = (diff = useDiffStore.getState()): Data => ({
   files: diff.files,
   marks: diff.marks,
   collapse: diff.collapse,
-  reviewable: isWorkingCopy(useGraphStore.getState(), diff.loadedId),
+  reviewable: isReviewable(useGraphStore.getState(), diff.loadedId),
 });
 
 const fileOf = (path: string | undefined) => useDiffStore.getState().files.find((f) => f.path === path);
@@ -58,7 +58,7 @@ export function useSelectedChange() {
   return useGraphStore((s) => s.changes.find((c) => c.change_id === changeId));
 }
 
-export const useIsWorkingCopy = () => useSelectedChange()?.wc ?? false;
+export const useIsReviewable = () => takesReview(useSelectedChange());
 
 export const useSelectionStore = create<SelectionState>((set, get) => {
   const place = (selection: Selection, reveal: Reveal | null = get().reveal) => set({ selection, reveal });
@@ -205,10 +205,16 @@ export const useSelectionStore = create<SelectionState>((set, get) => {
 });
 
 async function followVanished(changeId: string, revset: string, seq: number) {
+  const bare = bareChangeId(changeId);
+  if (bare !== changeId && useGraphStore.getState().changes.some((c) => c.change_id === bare)) {
+    useSelectionStore.getState().selectChange(bare);
+    return;
+  }
+
   let successor: string | undefined;
   let error: string | null = null;
   try {
-    const ids = await api.successors(revset, changeId);
+    const ids = await api.successors(revset, bare);
     if (ids.length === 1) successor = ids[0];
   } catch (e) {
     error = errorMessage(e);

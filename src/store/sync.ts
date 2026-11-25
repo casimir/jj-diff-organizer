@@ -5,12 +5,11 @@ import { useHistoryStore } from "@/store/history";
 import { useSelectionStore } from "@/store/selection";
 import type { RepoInfo } from "@/types";
 
-const refreshAll = () =>
-  Promise.all([
-    useGraphStore.getState().refresh(),
-    useDiffStore.getState().refresh(),
-    useHistoryStore.getState().refresh(),
-  ]);
+const refreshAll = async () => {
+  const history = useHistoryStore.getState().refresh();
+  await useGraphStore.getState().refresh();
+  await Promise.all([useDiffStore.getState().refresh(), history]);
+};
 
 /** Listeners live as long as the window: a window shows one repository. */
 export async function startSync(info: RepoInfo): Promise<void> {

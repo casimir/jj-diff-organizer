@@ -118,6 +118,14 @@ edit src/ui/beta.txt 1 "beta line 1 (feat-b-3)"
 age $((4 * HOUR))
 jj bookmark create feat-b wip/gamma-split-experiment -r @ >/dev/null
 
+jj new feat-a -m "divergent" >/dev/null
+edit docs/gamma.txt 20 "gamma line 20 (divergent)"
+age $((2 * HOUR))
+jj status >/dev/null
+before_divergence="$(jj op log --no-graph -n1 -T 'id.short()')"
+jj describe -m "divergent: side one" >/dev/null
+jj --at-op "$before_divergence" describe -m "divergent: side two" >/dev/null 2>&1
+
 jj new feat-a -m "wip: beta in two places, gamma, alpha adjacent lines" >/dev/null
 edit src/ui/beta.txt 12 "beta line 12 (wip)"
 edit src/ui/beta.txt 27 "beta line 27 (wip)"

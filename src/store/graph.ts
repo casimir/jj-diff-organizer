@@ -16,9 +16,20 @@ interface GraphState {
 
 let latestRefresh = 0;
 
-/** Review marks apply to the working copy only. */
-export const isWorkingCopy = ({ changes }: Pick<GraphState, "changes">, changeId: string | null | undefined) =>
-  changes.find((c) => c.change_id === changeId)?.wc ?? false;
+/**
+ * Returns whether a change takes review marks.
+ *
+ * @remarks
+ * Immutable changes are read-only. Divergent commits are too: they share a change ID, and the offset
+ * that tells them apart changes with every rewrite, so no stable key can hold their marks.
+ */
+export const takesReview = (change: Change | undefined) => !!change && !change.immutable && !change.divergent;
+
+export const isReviewable = ({ changes }: Pick<GraphState, "changes">, changeId: string | null | undefined) =>
+  takesReview(changes.find((c) => c.change_id === changeId));
+
+/** Returns a change ID without its divergence offset (`xyz/1` → `xyz`). */
+export const bareChangeId = (changeId: string) => changeId.split("/")[0];
 
 export const useGraphStore = create<GraphState>((set, get) => ({
   root: "",
